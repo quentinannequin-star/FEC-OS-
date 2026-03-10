@@ -1,36 +1,81 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# M&A OS Portal
 
-## Getting Started
+Plateforme SaaS sécurisée pour banquiers d'affaires — Deal Execution Platform.
 
-First, run the development server:
+## Stack technique
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- **Framework** : Next.js 16 (App Router)
+- **UI** : Tailwind CSS v4 + shadcn/ui (base-ui v4)
+- **Auth & BDD** : Supabase (Auth + PostgreSQL + RLS)
+- **3D/Shader** : Three.js (animation WebGL sur la page de login)
+- **Déploiement** : Vercel
+
+## Règle métier absolue
+
+`Login → Signature NDA → Dashboard`. Le middleware applique ce flux sur chaque route.
+
+## Setup local
+
+### 1. Variables d'environnement
+
+Créer un fichier `.env.local` à la racine :
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://xxxxx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIs...
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIs...
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Base de données Supabase
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Exécuter le SQL de `docs/schema.sql` dans **Supabase > SQL Editor**.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Tables créées :
+- `profiles` — lié à `auth.users` via trigger automatique
+- `nda_signatures` — traçabilité des signatures NDA
+- `os_modules` — registre des micro-applications (3 seedées)
 
-## Learn More
+### 3. Installation et lancement
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npm install
+npm run dev
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Ouvrir [http://localhost:3000](http://localhost:3000)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Structure des dossiers
 
-## Deploy on Vercel
+```
+src/
+├── app/
+│   ├── (auth)/          # login, register, callback
+│   ├── (protected)/     # dashboard, nda, os/[slug], profile
+│   ├── error.tsx        # page d'erreur globale
+│   └── not-found.tsx    # page 404
+├── components/
+│   ├── auth/            # LoginForm, RegisterForm
+│   ├── dashboard/       # ModuleCard
+│   ├── layout/          # Sidebar, Header, MobileSidebar
+│   └── ui/              # composants shadcn + ShaderAnimation
+├── lib/
+│   ├── supabase/        # client, server, middleware, admin
+│   └── nda-content.ts
+├── types/
+│   └── database.ts
+└── middleware.ts        # protection des routes
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Déploiement Vercel
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. Connecter le repo GitHub à Vercel
+2. Ajouter les 3 variables d'environnement dans Vercel > Settings > Environment Variables
+3. Chaque `git push origin main` déclenche un déploiement automatique
+
+## Commandes
+
+```bash
+npm run dev    # serveur de développement
+npm run build  # build de production
+npm run lint   # linting ESLint
+```
