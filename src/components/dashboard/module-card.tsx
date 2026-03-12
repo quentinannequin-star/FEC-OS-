@@ -8,8 +8,7 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button, buttonVariants } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import {
   FileSpreadsheet,
   FolderLock,
@@ -56,7 +55,7 @@ export function ModuleCard({ module }: { module: OsModule }) {
         {module.status === "active" ? (
           <Link
             href={`/os/${module.slug}`}
-            className={cn(buttonVariants({ variant: "default" }), "w-full justify-center")}
+            className="inline-flex w-full items-center justify-center rounded-lg bg-zinc-900 text-white text-sm font-medium h-8 px-2.5 hover:bg-zinc-700 transition-colors"
           >
             Ouvrir
           </Link>

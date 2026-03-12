@@ -1,0 +1,553 @@
+// ============================================================
+// FEC Analyzer — Computation Engine
+// Applies mapping to parsed FEC entries → P&L, BFR, KPIs
+// ============================================================
+
+import type {
+  FecEntry,
+  PnlMappingLine,
+  BfrMappingLine,
+  PnlLineResult,
+  BfrLineResult,
+  BfrMonthResult,
+  AccountDetail,
+  AnalysisResult,
+  Company,
+  CompanySector,
+  KpiResult,
+} from "./types";
+import {
+  PNL_MAPPING,
+  BFR_MAPPING,
+  KPI_MAPPING,
+  PNL_EXCLUDED_JOURNALS,
+  CLOSURE_JOURNALS,
+  PNL_EXCLUDED_ACCOUNT_PREFIXES,
+} from "./mapping";
+
+// ============================================================
+// UTILITIES
+// ============================================================
+
+/**
+ * Check if an account number matches a prefix.
+ * "60110000" starts with "601" → true
+ */
+function matchesPrefix(compteNum: string, prefix: string): boolean {
+  return compteNum.startsWith(prefix);
+}
+
+/**
+ * Check if an account should be excluded based on exclusion prefixes.
+ * Uses longest-prefix-first matching.
+ */
+function isExcluded(compteNum: string, excludes: string[]): boolean {
+  return excludes.some((ex) => compteNum.startsWith(ex));
+}
+
+/**
+ * Find the best matching mapping line for an account.
+ * Uses longest-prefix-first matching to avoid ambiguity.
+ * Returns the mapping line ID or null if no match.
+ */
+function findMappingMatch(
+  compteNum: string,
+  mappingLines: { id: string; pcg_prefix: string[]; pcg_exclude: string[] }[]
+): string | null {
+  let bestMatch: string | null = null;
+  let bestPrefixLen = 0;
+
+  for (const line of mappingLines) {
+    if (line.pcg_prefix.length === 0) continue; // Skip subtotals
+
+    for (const prefix of line.pcg_prefix) {
+      if (
+        prefix.length > bestPrefixLen &&
+        matchesPrefix(compteNum, prefix) &&
+        !isExcluded(compteNum, line.pcg_exclude)
+      ) {
+        bestPrefixLen = prefix.length;
+        bestMatch = line.id;
+      }
+    }
+  }
+
+  return bestMatch;
+}
+
+/**
+ * Filter P&L entries: exclude opening balance journals and result accounts.
+ */
+function filterPnlEntries(entries: FecEntry[]): FecEntry[] {
+  return entries.filter((e) => {
+    const journal = e.JournalCode.toUpperCase();
+
+    // Exclude opening balance journals
+    if (PNL_EXCLUDED_JOURNALS.includes(journal)) return false;
+
+    // For closure journals, only keep 6x/7x accounts
+    if (CLOSURE_JOURNALS.includes(journal)) {
+      const firstChar = e.CompteNum.charAt(0);
+      return firstChar === "6" || firstChar === "7";
+    }
+
+    // Exclude result accounts (12x, 89x) at closing date
+    for (const prefix of PNL_EXCLUDED_ACCOUNT_PREFIXES) {
+      if (e.CompteNum.startsWith(prefix)) return false;
+    }
+
+    return true;
+  });
+}
+
+/**
+ * Parse a formula string and evaluate it against computed line values.
+ * Formula syntax: "PL_010 - PL_012 + PL_020"
+ */
+function evaluateFormula(
+  formula: string,
+  values: Map<string, number>
+): number {
+  // Tokenize: split by + and - while keeping the operator
+  const tokens = formula.match(/[+-]?\s*[A-Z_0-9]+/g);
+  if (!tokens) return 0;
+
+  let result = 0;
+  for (const token of tokens) {
+    const trimmed = token.trim();
+    const isNegative = trimmed.startsWith("-");
+    const id = trimmed.replace(/^[+-]\s*/, "");
+    const value = values.get(id) ?? 0;
+    result += isNegative ? -value : value;
+  }
+
+  // Handle first token without explicit sign
+  const firstToken = tokens[0].trim();
+  if (!firstToken.startsWith("+") && !firstToken.startsWith("-")) {
+    // Already handled correctly by the loop above
+  }
+
+  return result;
+}
+
+/**
+ * Get year-month string from a date: "2023-01"
+ */
+function getYearMonth(date: Date): string {
+  const year = date.getFullYear();
+  const month = (date.getMonth() + 1).toString().padStart(2, "0");
+  return `${year}-${month}`;
+}
+
+// ============================================================
+// P&L COMPUTATION
+// ============================================================
+
+export function computePnl(entries: FecEntry[]): PnlLineResult[] {
+  // 1. Filter entries for P&L
+  const pnlEntries = filterPnlEntries(entries);
+
+  // 2. Build an index: mapping line ID → aggregated amounts + details
+  const lineAggregates = new Map<
+    string,
+    { debitTotal: number; creditTotal: number; accounts: Map<string, AccountDetail> }
+  >();
+
+  // Initialize for all account-type lines
+  for (const line of PNL_MAPPING) {
+    if (line.type === "account") {
+      lineAggregates.set(line.id, {
+        debitTotal: 0,
+        creditTotal: 0,
+        accounts: new Map(),
+      });
+    }
+  }
+
+  // 3. Classify each entry into the appropriate mapping line
+  const accountLines = PNL_MAPPING.filter((l) => l.type === "account");
+
+  for (const entry of pnlEntries) {
+    const matchId = findMappingMatch(entry.CompteNum, accountLines);
+    if (!matchId) continue; // Unmapped account
+
+    const agg = lineAggregates.get(matchId);
+    if (!agg) continue;
+
+    agg.debitTotal += entry.Debit;
+    agg.creditTotal += entry.Credit;
+
+    // Aggregate by account number for detail drill-down
+    const existing = agg.accounts.get(entry.CompteNum);
+    if (existing) {
+      existing.debit += entry.Debit;
+      existing.credit += entry.Credit;
+      existing.entryCount += 1;
+    } else {
+      agg.accounts.set(entry.CompteNum, {
+        compteNum: entry.CompteNum,
+        compteLib: entry.CompteLib,
+        debit: entry.Debit,
+        credit: entry.Credit,
+        solde: 0, // Will be computed after
+        entryCount: 1,
+      });
+    }
+  }
+
+  // 4. Compute amounts for account-type lines
+  const values = new Map<string, number>();
+
+  for (const line of PNL_MAPPING) {
+    if (line.type !== "account") continue;
+
+    const agg = lineAggregates.get(line.id);
+    if (!agg) {
+      values.set(line.id, 0);
+      continue;
+    }
+
+    let amount: number;
+    if (line.sign === "credit_minus_debit") {
+      amount = agg.creditTotal - agg.debitTotal;
+    } else {
+      // debit_minus_credit
+      amount = agg.debitTotal - agg.creditTotal;
+    }
+
+    values.set(line.id, amount);
+
+    // Compute solde for each account detail
+    for (const detail of agg.accounts.values()) {
+      if (line.sign === "credit_minus_debit") {
+        detail.solde = detail.credit - detail.debit;
+      } else {
+        detail.solde = detail.debit - detail.credit;
+      }
+    }
+  }
+
+  // 5. Compute subtotal lines (evaluate formulas)
+  for (const line of PNL_MAPPING) {
+    if (line.type === "subtotal" && line.formula) {
+      const amount = evaluateFormula(line.formula, values);
+      values.set(line.id, amount);
+    }
+  }
+
+  // 6. Build result array
+  const results: PnlLineResult[] = PNL_MAPPING.map((line) => {
+    const agg = lineAggregates.get(line.id);
+    const details: AccountDetail[] = agg
+      ? Array.from(agg.accounts.values()).sort((a, b) =>
+          a.compteNum.localeCompare(b.compteNum)
+        )
+      : [];
+
+    return {
+      id: line.id,
+      label: line.label,
+      type: line.type,
+      amount: values.get(line.id) ?? 0,
+      is_key_subtotal: line.is_key_subtotal,
+      restatement_flag: line.restatement_flag,
+      details,
+    };
+  });
+
+  return results;
+}
+
+// ============================================================
+// BFR MONTHLY COMPUTATION
+// ============================================================
+
+export function computeMonthlyBfr(entries: FecEntry[]): BfrMonthResult[] {
+  // BFR includes ALL entries (including opening balances AN/RAN)
+  // We compute cumulative balances at each month-end
+
+  // 1. Find all months in the data
+  const monthSet = new Set<string>();
+  for (const entry of entries) {
+    if (entry.EcritureDate.getTime() === 0) continue;
+    monthSet.add(getYearMonth(entry.EcritureDate));
+  }
+  const months = Array.from(monthSet).sort();
+
+  if (months.length === 0) return [];
+
+  // 2. For each BFR account line, compute cumulative balance per month
+  const accountLines = BFR_MAPPING.filter((l) => l.category !== "subtotal");
+
+  // Pre-classify entries by BFR line
+  const entryByLine = new Map<string, FecEntry[]>();
+  for (const line of accountLines) {
+    entryByLine.set(line.id, []);
+  }
+
+  for (const entry of entries) {
+    // Skip result accounts
+    if (entry.CompteNum.startsWith("12") || entry.CompteNum.startsWith("89")) continue;
+
+    const matchId = findMappingMatch(entry.CompteNum, accountLines);
+    if (!matchId) continue;
+
+    const arr = entryByLine.get(matchId);
+    if (arr) arr.push(entry);
+  }
+
+  // 3. Compute monthly results
+  const monthlyResults: BfrMonthResult[] = [];
+
+  for (const month of months) {
+    const lines: BfrLineResult[] = [];
+    const lineValues = new Map<string, number>();
+
+    // Compute balance for each account line (cumulative up to this month)
+    for (const mappingLine of accountLines) {
+      const lineEntries = entryByLine.get(mappingLine.id) ?? [];
+
+      // Sum all entries up to and including this month
+      let debitSum = 0;
+      let creditSum = 0;
+
+      for (const entry of lineEntries) {
+        const entryMonth = getYearMonth(entry.EcritureDate);
+        if (entryMonth <= month) {
+          debitSum += entry.Debit;
+          creditSum += entry.Credit;
+        }
+      }
+
+      let balance: number;
+      if (mappingLine.balance === "debit_minus_credit") {
+        balance = debitSum - creditSum;
+      } else if (mappingLine.balance === "credit_minus_debit") {
+        balance = creditSum - debitSum;
+      } else {
+        balance = 0;
+      }
+
+      lineValues.set(mappingLine.id, balance);
+
+      lines.push({
+        id: mappingLine.id,
+        label: mappingLine.label,
+        category: mappingLine.category,
+        bfr_sign: mappingLine.bfr_sign,
+        amount: balance,
+        linked_ratio: mappingLine.linked_ratio,
+      });
+    }
+
+    // Compute subtotals
+    for (const mappingLine of BFR_MAPPING.filter((l) => l.category === "subtotal")) {
+      if (!mappingLine.formula) continue;
+      const amount = evaluateFormula(mappingLine.formula, lineValues);
+      lineValues.set(mappingLine.id, amount);
+
+      lines.push({
+        id: mappingLine.id,
+        label: mappingLine.label,
+        category: mappingLine.category,
+        bfr_sign: mappingLine.bfr_sign,
+        amount,
+        linked_ratio: mappingLine.linked_ratio,
+      });
+    }
+
+    monthlyResults.push({
+      month,
+      lines,
+      operatingAssets: lineValues.get("BFR_200") ?? 0,
+      operatingLiabilities: lineValues.get("BFR_210") ?? 0,
+      operatingBfr: lineValues.get("BFR_220") ?? 0,
+    });
+  }
+
+  return monthlyResults;
+}
+
+// ============================================================
+// KPI COMPUTATION — driven by KPI_MAPPING table + sector filter
+// ============================================================
+
+/**
+ * Evaluate a KPI formula that can include arithmetic operations.
+ * Supports: +, -, *, /, parentheses, and line IDs (PL_xxx, BFR_xxx).
+ * Returns null if any division by zero occurs.
+ */
+function evaluateKpiFormula(
+  formula: string,
+  values: Map<string, number>
+): number | null {
+  // Replace all IDs with their numeric values
+  const resolved = formula.replace(/[A-Z]+_[0-9]+/g, (match) => {
+    const val = values.get(match) ?? 0;
+    return val.toString();
+  });
+
+  try {
+    // Safe evaluation using Function constructor (no user input, only our mapping formulas)
+    const fn = new Function(`"use strict"; return (${resolved});`);
+    const result = fn() as number;
+    if (!isFinite(result)) return null;
+    return result;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Filter KPIs relevant to a given sector.
+ * A KPI is relevant if sector_relevance contains "all" or the specific sector.
+ */
+function filterKpisBySector(sector: CompanySector): typeof KPI_MAPPING {
+  return KPI_MAPPING.filter(
+    (kpi) =>
+      kpi.sector_relevance.includes("all") ||
+      kpi.sector_relevance.includes(sector)
+  );
+}
+
+export function computeKpis(
+  pnl: PnlLineResult[],
+  bfr: BfrMonthResult[],
+  sector: CompanySector
+): KpiResult[] {
+  // Build unified value map (PL_xxx + BFR_xxx)
+  const allValues = new Map<string, number>();
+
+  for (const line of pnl) {
+    allValues.set(line.id, line.amount);
+  }
+
+  // BFR values from last month (closing balances)
+  const lastBfr = bfr.length > 0 ? bfr[bfr.length - 1] : null;
+  if (lastBfr) {
+    for (const line of lastBfr.lines) {
+      allValues.set(line.id, line.amount);
+    }
+  }
+
+  // Filter KPIs by sector
+  const relevantKpis = filterKpisBySector(sector);
+
+  // Compute each KPI
+  return relevantKpis.map((kpi) => {
+    const value = evaluateKpiFormula(kpi.formula, allValues);
+
+    // Determine if in alert zone
+    let isAlert = false;
+    if (value !== null) {
+      if (kpi.alert_below !== null && value < kpi.alert_below) isAlert = true;
+      if (kpi.alert_above !== null && value > kpi.alert_above) isAlert = true;
+    }
+
+    return {
+      id: kpi.id,
+      name: kpi.name,
+      category: kpi.category,
+      value,
+      unit: kpi.unit,
+      formula: kpi.formula,
+      benchmark: kpi.benchmark,
+      alert_below: kpi.alert_below,
+      alert_above: kpi.alert_above,
+      isAlert,
+    };
+  });
+}
+
+// ============================================================
+// UNMAPPED ACCOUNTS
+// ============================================================
+
+function findUnmappedAccounts(
+  entries: FecEntry[]
+): { compteNum: string; compteLib: string; debit: number; credit: number }[] {
+  const pnlEntries = filterPnlEntries(entries);
+  const accountLines = PNL_MAPPING.filter((l) => l.type === "account");
+  const bfrAccountLines = BFR_MAPPING.filter((l) => l.category !== "subtotal");
+
+  const unmapped = new Map<
+    string,
+    { compteNum: string; compteLib: string; debit: number; credit: number }
+  >();
+
+  for (const entry of pnlEntries) {
+    const firstChar = entry.CompteNum.charAt(0);
+    // Only flag class 6 and 7 (P&L accounts) that aren't mapped
+    if (firstChar !== "6" && firstChar !== "7") continue;
+
+    const match = findMappingMatch(entry.CompteNum, accountLines);
+    if (!match) {
+      const existing = unmapped.get(entry.CompteNum);
+      if (existing) {
+        existing.debit += entry.Debit;
+        existing.credit += entry.Credit;
+      } else {
+        unmapped.set(entry.CompteNum, {
+          compteNum: entry.CompteNum,
+          compteLib: entry.CompteLib,
+          debit: entry.Debit,
+          credit: entry.Credit,
+        });
+      }
+    }
+  }
+
+  // Also check balance sheet accounts for BFR
+  for (const entry of entries) {
+    const firstChar = entry.CompteNum.charAt(0);
+    if (firstChar === "6" || firstChar === "7") continue; // Already checked
+
+    const match = findMappingMatch(entry.CompteNum, bfrAccountLines);
+    // We don't flag balance sheet unmapped — too noisy. Only flag P&L.
+  }
+
+  return Array.from(unmapped.values()).sort((a, b) =>
+    a.compteNum.localeCompare(b.compteNum)
+  );
+}
+
+// ============================================================
+// MAIN ORCHESTRATOR
+// ============================================================
+
+export function analyzeCompany(company: Company): AnalysisResult {
+  const entries = company.parsedEntries ?? [];
+
+  // Detect fiscal year
+  const dates = entries
+    .map((e) => e.EcritureDate.getTime())
+    .filter((t) => t > 0);
+  const minDate = new Date(Math.min(...dates));
+  const maxDate = new Date(Math.max(...dates));
+  const fiscalYear = `${minDate.toLocaleDateString("fr-FR")} — ${maxDate.toLocaleDateString("fr-FR")}`;
+
+  // Compute P&L
+  const pnl = computePnl(entries);
+
+  // Compute BFR monthly
+  const bfrMonthly = computeMonthlyBfr(entries);
+
+  // Compute KPIs (filtered by sector)
+  const kpis = computeKpis(pnl, bfrMonthly, company.sector);
+
+  // Find unmapped accounts
+  const unmappedAccounts = findUnmappedAccounts(entries);
+
+  return {
+    companyId: company.id,
+    companyName: company.name,
+    companyType: company.type,
+    companySector: company.sector,
+    fiscalYear,
+    entryCount: entries.length,
+    pnl,
+    bfrMonthly,
+    kpis,
+    unmappedAccounts,
+  };
+}
