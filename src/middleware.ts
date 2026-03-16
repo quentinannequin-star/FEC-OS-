@@ -19,7 +19,7 @@ export async function middleware(request: NextRequest) {
   // Logged in and on auth route → redirect to dashboard
   if (user && isAuthRoute) {
     const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
+    url.pathname = "/os/fec-analyzer";
     return NextResponse.redirect(url);
   }
 
@@ -50,7 +50,7 @@ export async function middleware(request: NextRequest) {
 
     if (ndaSignature) {
       const url = request.nextUrl.clone();
-      url.pathname = "/dashboard";
+      url.pathname = "/os/fec-analyzer";
       return NextResponse.redirect(url);
     }
   }

@@ -13,7 +13,7 @@ export default function NotFound() {
         La page que vous cherchez n&apos;existe pas ou a été déplacée.
       </p>
       <Link
-        href="/dashboard"
+        href="/os/fec-analyzer"
         className="inline-flex items-center justify-center rounded-lg bg-[#e040fb] text-white text-sm font-medium h-8 px-4 hover:bg-[#c030d9] transition-colors"
       >
         Retour au dashboard

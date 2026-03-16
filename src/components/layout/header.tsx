@@ -1,8 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import type { OsModule } from "@/types/database";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,22 +11,18 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { MobileSidebar } from "./mobile-sidebar";
-import { Menu, User, LogOut, Shield } from "lucide-react";
+import { User, LogOut, Shield } from "lucide-react";
 
 interface HeaderProps {
   userFullName: string;
   userEmail: string;
   ndaSignedAt: string | null;
-  modules: OsModule[];
 }
 
 export function Header({
   userFullName,
   userEmail,
   ndaSignedAt,
-  modules,
 }: HeaderProps) {
   const router = useRouter();
 
@@ -48,18 +44,15 @@ export function Header({
 
   return (
     <header className="sticky top-0 z-40 flex h-14 items-center gap-4 border-b border-white/[0.08] bg-[#12121a] px-4 md:px-6">
-      {/* Mobile menu trigger */}
-      <Sheet>
-        <SheetTrigger
-          className="md:hidden flex items-center justify-center h-8 w-8 rounded-md hover:bg-white/[0.06] transition-colors"
-          aria-label="Menu"
-        >
-          <Menu className="h-5 w-5 text-[#8b8b9e]" />
-        </SheetTrigger>
-        <SheetContent side="left" className="w-[260px] p-0 bg-[#0d0d14]">
-          <MobileSidebar modules={modules} userFullName={userFullName} />
-        </SheetContent>
-      </Sheet>
+      {/* Branding */}
+      <Link href="/os/fec-analyzer" className="flex items-center gap-2">
+        <span className="text-base font-bold text-white tracking-tight">
+          M&A OS
+        </span>
+        <span className="hidden sm:inline text-xs text-[#52526b]">
+          Deal Execution Platform
+        </span>
+      </Link>
 
       <div className="flex-1" />
 
