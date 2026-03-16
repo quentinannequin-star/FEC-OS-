@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PnlTable } from "./pnl-table";
 import { AngloSaxonPnlTable } from "./anglo-saxon-pnl-table";
 import { BfrChart } from "./bfr-chart";
+import { PnlBridgeChart } from "./pnl-bridge-chart";
 import { KpiCards } from "./kpi-cards";
 import type { MultiYearAnalysisResult } from "@/lib/fec/types";
 
@@ -93,7 +94,7 @@ export function ResultsView({ results, onBack }: ResultsViewProps) {
         )}
       </div>
 
-      {/* Main grid: P&L left, BFR right */}
+      {/* Main grid: P&L left, BFR + KPIs right */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
         {/* P&L — 3/5 width */}
         <div className="lg:col-span-3">
@@ -117,6 +118,9 @@ export function ResultsView({ results, onBack }: ResultsViewProps) {
           <KpiCards yearResults={current.yearResults} />
         </div>
       </div>
+
+      {/* P&L Bridge Waterfall — full width */}
+      <PnlBridgeChart yearResults={current.yearResults} />
     </div>
   );
 }

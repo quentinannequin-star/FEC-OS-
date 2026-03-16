@@ -966,6 +966,7 @@ export const BFR_MAPPING: BfrMappingLine[] = [
     bfr_sign: "negative",
     formula: null,
     linked_ratio: null,
+    restatement_flag: "reclass_review", // M&A/TS: 467 needs analyst review — often contains non-operating items (asset disposals, SCI current accounts)
   },
   // --- Sous-totaux ---
   {
@@ -1135,6 +1136,7 @@ export const BFR_MAPPING: BfrMappingLine[] = [
     bfr_sign: "info",
     formula: null,
     linked_ratio: null,
+    restatement_flag: "suspense_monitor", // M&A/TS: 471 fluctuates wildly intra-year (unreconciled bank items) — must be monitored monthly
   },
 ];
 

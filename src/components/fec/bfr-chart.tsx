@@ -12,7 +12,10 @@ import {
   Legend,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { TableProperties } from "lucide-react";
 import { BfrDetailModal } from "./bfr-detail-modal";
+import { BfrMonthlyTable } from "./bfr-monthly-table";
 import { formatAmountK, formatMonthShort } from "@/lib/fec/format";
 import type { AnalysisResult, BfrMonthResult } from "@/lib/fec/types";
 
@@ -25,6 +28,7 @@ interface BfrChartProps {
 
 export function BfrChart({ yearResults }: BfrChartProps) {
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
+  const [showMonthlyTable, setShowMonthlyTable] = useState(false);
 
   if (yearResults.length === 0) return null;
 
@@ -47,6 +51,7 @@ export function BfrChart({ yearResults }: BfrChartProps) {
       <SingleYearBfrChart
         monthly={yearResults[0].bfrMonthly}
         yearLabel={yearLabels[0]}
+        yearResults={yearResults}
       />
     );
   }
@@ -100,9 +105,20 @@ export function BfrChart({ yearResults }: BfrChartProps) {
     <>
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base font-semibold text-white">
-            BFR Opérationnel — Comparaison multi-exercices
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base font-semibold text-white">
+              BFR Opérationnel — Comparaison multi-exercices
+            </CardTitle>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowMonthlyTable(true)}
+              className="text-[#8b8b9e] hover:text-white h-7 gap-1.5 text-xs"
+            >
+              <TableProperties className="h-3.5 w-3.5" />
+              Tableau détaillé
+            </Button>
+          </div>
           <p className="text-xs text-[#8b8b9e]">
             Cliquez sur un mois pour le détail
           </p>
@@ -164,6 +180,13 @@ export function BfrChart({ yearResults }: BfrChartProps) {
           monthData={selectedMonthData}
         />
       )}
+
+      {/* Monthly table modal */}
+      <BfrMonthlyTable
+        open={showMonthlyTable}
+        onClose={() => setShowMonthlyTable(false)}
+        yearResults={yearResults}
+      />
     </>
   );
 }
@@ -172,11 +195,14 @@ export function BfrChart({ yearResults }: BfrChartProps) {
 function SingleYearBfrChart({
   monthly,
   yearLabel,
+  yearResults,
 }: {
   monthly: BfrMonthResult[];
   yearLabel: string;
+  yearResults: AnalysisResult[];
 }) {
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
+  const [showMonthlyTable, setShowMonthlyTable] = useState(false);
 
   const chartData = monthly.map((m) => ({
     month: m.month,
@@ -211,9 +237,20 @@ function SingleYearBfrChart({
     <>
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base font-semibold text-white">
-            BFR Opérationnel Mensuel
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base font-semibold text-white">
+              BFR Opérationnel Mensuel
+            </CardTitle>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowMonthlyTable(true)}
+              className="text-[#8b8b9e] hover:text-white h-7 gap-1.5 text-xs"
+            >
+              <TableProperties className="h-3.5 w-3.5" />
+              Tableau détaillé
+            </Button>
+          </div>
           <p className="text-xs text-[#8b8b9e]">
             Cliquez sur une barre pour le détail
           </p>
@@ -291,6 +328,13 @@ function SingleYearBfrChart({
           monthData={selectedMonthData}
         />
       )}
+
+      {/* Monthly table modal */}
+      <BfrMonthlyTable
+        open={showMonthlyTable}
+        onClose={() => setShowMonthlyTable(false)}
+        yearResults={yearResults}
+      />
     </>
   );
 }

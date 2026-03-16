@@ -99,6 +99,8 @@ export interface BfrMappingLine {
   bfr_sign: BfrSign;
   formula: string | null;
   linked_ratio: string | null;
+  /** M&A/TS flag: "reclass_review" = needs analyst review for op/non-op split */
+  restatement_flag?: string;
 }
 
 export interface NetDebtMappingLine {
@@ -156,6 +158,8 @@ export interface BfrLineResult {
   amount: number;
   linked_ratio: string | null;
   details: AccountDetail[];
+  /** M&A/TS flag: signals analyst review needed */
+  restatement_flag?: string;
 }
 
 export interface BfrMonthResult {

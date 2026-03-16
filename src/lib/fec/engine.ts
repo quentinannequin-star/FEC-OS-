@@ -52,8 +52,16 @@ function isExcluded(compteNum: string, excludes: string[]): boolean {
 
 /**
  * Find the best matching mapping line for an account.
- * Uses longest-prefix-first matching to avoid ambiguity.
- * Returns the mapping line ID or null if no match.
+ * Uses longest-prefix-first matching with proper exclusion handling.
+ *
+ * CRITICAL (M&A/TS): Exclusions are evaluated DURING matching, not after.
+ * A rule is only a valid candidate if the account matches its prefix AND
+ * does NOT match any of its pcg_exclude prefixes. Among valid candidates,
+ * the one with the longest matching prefix wins.
+ *
+ * This ensures an account excluded from a "parent" rule (e.g. 445 excluded
+ * from prefix "44") can be caught by a more specific rule (e.g. prefix "4456")
+ * OR by a shorter rule that doesn't exclude it.
  */
 function findMappingMatch(
   compteNum: string,
@@ -65,12 +73,12 @@ function findMappingMatch(
   for (const line of mappingLines) {
     if (line.pcg_prefix.length === 0) continue; // Skip subtotals
 
+    // Check exclusion FIRST for this rule — if excluded, skip entire rule
+    // (the account may still be caught by another rule)
+    if (isExcluded(compteNum, line.pcg_exclude)) continue;
+
     for (const prefix of line.pcg_prefix) {
-      if (
-        prefix.length > bestPrefixLen &&
-        matchesPrefix(compteNum, prefix) &&
-        !isExcluded(compteNum, line.pcg_exclude)
-      ) {
+      if (prefix.length > bestPrefixLen && matchesPrefix(compteNum, prefix)) {
         bestPrefixLen = prefix.length;
         bestMatch = line.id;
       }
@@ -288,93 +296,126 @@ export function computePnl(entries: FecEntry[]): PnlLineResult[] {
 export function computeMonthlyBfr(entries: FecEntry[]): BfrMonthResult[] {
   // BFR includes ALL entries (including opening balances AN/RAN)
   // We compute cumulative balances at each month-end
+  //
+  // PERFORMANCE: O(N) Running Balance / Snapshotting algorithm
+  // Instead of re-scanning all entries for each month (O(N×M)),
+  // we sort entries by date, walk once, and snapshot at each month boundary.
 
-  // 1. Find all months in the data
+  const accountLines = BFR_MAPPING.filter((l) => l.category !== "subtotal");
+  const subtotalLines = BFR_MAPPING.filter((l) => l.category === "subtotal");
+
+  // ── Step 1: Classify + tag each entry with its BFR line + month ──
+  // Single pass O(N) to assign each entry to a BFR line
+  interface TaggedEntry {
+    lineId: string;
+    month: string;
+    compteNum: string;
+    compteLib: string;
+    debit: number;
+    credit: number;
+  }
+
+  const tagged: TaggedEntry[] = [];
   const monthSet = new Set<string>();
+
   for (const entry of entries) {
     if (entry.EcritureDate.getTime() === 0) continue;
-    monthSet.add(getYearMonth(entry.EcritureDate));
-  }
-  const months = Array.from(monthSet).sort();
-
-  if (months.length === 0) return [];
-
-  // 2. For each BFR account line, compute cumulative balance per month
-  const accountLines = BFR_MAPPING.filter((l) => l.category !== "subtotal");
-
-  // Pre-classify entries by BFR line
-  const entryByLine = new Map<string, FecEntry[]>();
-  for (const line of accountLines) {
-    entryByLine.set(line.id, []);
-  }
-
-  for (const entry of entries) {
-    // Skip result accounts
+    // Skip result/opening balance accounts
     if (entry.CompteNum.startsWith("12") || entry.CompteNum.startsWith("89")) continue;
 
     const matchId = findMappingMatch(entry.CompteNum, accountLines);
     if (!matchId) continue;
 
-    const arr = entryByLine.get(matchId);
-    if (arr) arr.push(entry);
+    const month = getYearMonth(entry.EcritureDate);
+    monthSet.add(month);
+
+    tagged.push({
+      lineId: matchId,
+      month,
+      compteNum: entry.CompteNum,
+      compteLib: entry.CompteLib,
+      debit: entry.Debit,
+      credit: entry.Credit,
+    });
   }
 
-  // 3. Compute monthly results
+  const months = Array.from(monthSet).sort();
+  if (months.length === 0) return [];
+
+  // ── Step 2: Sort tagged entries by month (lexicographic = chronological) ──
+  tagged.sort((a, b) => a.month.localeCompare(b.month));
+
+  // ── Step 3: Running balance — single pass O(N) with snapshots ──
+  // Running register: lineId → { debit, credit, accounts: Map<compteNum, AccountDetail> }
+  type LineRegister = {
+    debit: number;
+    credit: number;
+    accounts: Map<string, AccountDetail>;
+  };
+
+  const register = new Map<string, LineRegister>();
+  for (const line of accountLines) {
+    register.set(line.id, { debit: 0, credit: 0, accounts: new Map() });
+  }
+
   const monthlyResults: BfrMonthResult[] = [];
+  let entryIdx = 0;
+  const totalEntries = tagged.length;
 
   for (const month of months) {
+    // Accumulate all entries for this month into the running register
+    while (entryIdx < totalEntries && tagged[entryIdx].month <= month) {
+      const te = tagged[entryIdx];
+      const reg = register.get(te.lineId)!;
+
+      reg.debit += te.debit;
+      reg.credit += te.credit;
+
+      const existing = reg.accounts.get(te.compteNum);
+      if (existing) {
+        existing.debit += te.debit;
+        existing.credit += te.credit;
+        existing.entryCount += 1;
+      } else {
+        reg.accounts.set(te.compteNum, {
+          compteNum: te.compteNum,
+          compteLib: te.compteLib,
+          debit: te.debit,
+          credit: te.credit,
+          solde: 0,
+          entryCount: 1,
+        });
+      }
+
+      entryIdx++;
+    }
+
+    // ── Snapshot: read current register state for this month ──
     const lines: BfrLineResult[] = [];
     const lineValues = new Map<string, number>();
 
-    // Compute balance for each account line (cumulative up to this month)
     for (const mappingLine of accountLines) {
-      const lineEntries = entryByLine.get(mappingLine.id) ?? [];
-
-      // Sum all entries up to and including this month + build account details
-      let debitSum = 0;
-      let creditSum = 0;
-      const accountAgg = new Map<string, AccountDetail>();
-
-      for (const entry of lineEntries) {
-        const entryMonth = getYearMonth(entry.EcritureDate);
-        if (entryMonth <= month) {
-          debitSum += entry.Debit;
-          creditSum += entry.Credit;
-
-          const existing = accountAgg.get(entry.CompteNum);
-          if (existing) {
-            existing.debit += entry.Debit;
-            existing.credit += entry.Credit;
-            existing.entryCount += 1;
-          } else {
-            accountAgg.set(entry.CompteNum, {
-              compteNum: entry.CompteNum,
-              compteLib: entry.CompteLib,
-              debit: entry.Debit,
-              credit: entry.Credit,
-              solde: 0,
-              entryCount: 1,
-            });
-          }
-        }
-      }
+      const reg = register.get(mappingLine.id)!;
 
       let balance: number;
       if (mappingLine.balance === "debit_minus_credit") {
-        balance = debitSum - creditSum;
+        balance = reg.debit - reg.credit;
       } else if (mappingLine.balance === "credit_minus_debit") {
-        balance = creditSum - debitSum;
+        balance = reg.credit - reg.debit;
       } else {
         balance = 0;
       }
 
-      // Compute solde for each account detail
-      for (const detail of accountAgg.values()) {
+      // Compute solde for each account detail (snapshot, not clone — values are cumulative)
+      const details: AccountDetail[] = [];
+      for (const detail of reg.accounts.values()) {
         if (mappingLine.balance === "debit_minus_credit") {
           detail.solde = detail.debit - detail.credit;
         } else {
           detail.solde = detail.credit - detail.debit;
         }
+        // Clone for snapshot (register keeps accumulating)
+        details.push({ ...detail });
       }
 
       lineValues.set(mappingLine.id, balance);
@@ -386,12 +427,13 @@ export function computeMonthlyBfr(entries: FecEntry[]): BfrMonthResult[] {
         bfr_sign: mappingLine.bfr_sign,
         amount: balance,
         linked_ratio: mappingLine.linked_ratio,
-        details: Array.from(accountAgg.values()).sort((a, b) => a.compteNum.localeCompare(b.compteNum)),
+        details: details.sort((a, b) => a.compteNum.localeCompare(b.compteNum)),
+        restatement_flag: mappingLine.restatement_flag,
       });
     }
 
     // Compute subtotals
-    for (const mappingLine of BFR_MAPPING.filter((l) => l.category === "subtotal")) {
+    for (const mappingLine of subtotalLines) {
       if (!mappingLine.formula) continue;
       const amount = evaluateFormula(mappingLine.formula, lineValues);
       lineValues.set(mappingLine.id, amount);
@@ -404,6 +446,7 @@ export function computeMonthlyBfr(entries: FecEntry[]): BfrMonthResult[] {
         amount,
         linked_ratio: mappingLine.linked_ratio,
         details: [],
+        restatement_flag: mappingLine.restatement_flag,
       });
     }
 
