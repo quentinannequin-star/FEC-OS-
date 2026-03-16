@@ -62,15 +62,15 @@ export function NdaForm({
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 text-zinc-600">
+        <div className="flex items-center gap-2 text-[#8b8b9e]">
           <Shield className="h-4 w-4" />
           <span className="text-sm font-medium">Document confidentiel</span>
         </div>
         <Badge variant="secondary">Version {ndaVersion}</Badge>
       </div>
 
-      <div className="h-[400px] overflow-y-auto rounded-lg border border-zinc-200 bg-zinc-50 p-6">
-        <pre className="whitespace-pre-wrap font-sans text-sm text-zinc-700 leading-relaxed">
+      <div className="h-[400px] overflow-y-auto rounded-lg border border-white/[0.08] bg-[#12121a] p-6">
+        <pre className="whitespace-pre-wrap font-sans text-sm text-[#c0c0d0] leading-relaxed">
           {ndaContent}
         </pre>
       </div>
@@ -88,9 +88,9 @@ export function NdaForm({
             type="checkbox"
             checked={accepted}
             onChange={(e) => setAccepted(e.target.checked)}
-            className="mt-1 h-4 w-4 rounded border-zinc-300"
+            className="mt-1 h-4 w-4 rounded border-white/20 bg-[#12121a] accent-[#e040fb]"
           />
-          <span className="text-sm text-zinc-700">
+          <span className="text-sm text-[#c0c0d0]">
             J&apos;ai lu et j&apos;accepte les termes de l&apos;accord de
             confidentialité ci-dessus.
           </span>
@@ -100,7 +100,7 @@ export function NdaForm({
           <Label htmlFor="typedName">
             Tapez votre nom complet pour signer{" "}
             {fullName && (
-              <span className="text-zinc-400 font-normal">({fullName})</span>
+              <span className="text-[#52526b] font-normal">({fullName})</span>
             )}
           </Label>
           <Input
@@ -126,7 +126,7 @@ export function NdaForm({
         </Button>
       </div>
 
-      <p className="text-center text-xs text-zinc-400">
+      <p className="text-center text-xs text-[#52526b]">
         &copy; 2026 Alvora Partners — Confidential
       </p>
     </div>

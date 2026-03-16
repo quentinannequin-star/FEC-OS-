@@ -36,6 +36,14 @@ yarn-error.log*
 # vercel
 .vercel
 
+# claude code
+.claude/settings.local.json
+
+# word temp files
+~$*.docx
+~$*.doc
+~$*.xlsx
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

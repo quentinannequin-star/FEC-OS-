@@ -1,15 +1,15 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import type { Company, AnalysisResult, AnalysisStep } from "@/lib/fec/types";
+import type { Company, MultiYearAnalysisResult, AnalysisStep } from "@/lib/fec/types";
 import { CompanyForm } from "./company-form";
 import { ResultsView } from "./results-view";
-import { analyzeCompany } from "@/lib/fec/engine";
+import { analyzeCompanyMultiYear } from "@/lib/fec/engine";
 
 export function FecAnalyzer() {
   const [step, setStep] = useState<AnalysisStep>("scope");
   const [companies, setCompanies] = useState<Company[]>([]);
-  const [results, setResults] = useState<AnalysisResult[]>([]);
+  const [results, setResults] = useState<MultiYearAnalysisResult[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
 
   const handleLaunchAnalysis = useCallback(async () => {
@@ -21,17 +21,16 @@ export function FecAnalyzer() {
     try {
       const validCompanies = companies.filter(
         (c) =>
-          c.parsedEntries &&
-          c.parsedEntries.length > 0 &&
+          c.fecFiles.some((f) => f.parsedEntries && f.parsedEntries.length > 0) &&
           c.name.trim() !== ""
       );
 
-      const analysisResults: AnalysisResult[] = [];
+      const analysisResults: MultiYearAnalysisResult[] = [];
 
       for (const company of validCompanies) {
         // Yield to UI between companies
         await new Promise((resolve) => setTimeout(resolve, 10));
-        const result = analyzeCompany(company);
+        const result = analyzeCompanyMultiYear(company);
         analysisResults.push(result);
       }
 

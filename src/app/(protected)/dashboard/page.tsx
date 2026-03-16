@@ -36,10 +36,10 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-zinc-900">
+        <h1 className="text-2xl font-semibold text-white">
           Bienvenue, {firstName}
         </h1>
-        <p className="text-sm text-zinc-500 mt-1 capitalize">{today}</p>
+        <p className="text-sm text-[#8b8b9e] mt-1 capitalize">{today}</p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

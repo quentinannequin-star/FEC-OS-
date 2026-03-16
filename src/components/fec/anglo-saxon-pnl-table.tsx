@@ -3,25 +3,21 @@
 import { useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { DetailModal } from "./detail-modal";
+import { LedgerModal } from "./ledger-modal";
 import { formatAmountK, formatVariationAmount, formatVariationPercent } from "@/lib/fec/format";
-import type { PnlLineResult, AnalysisResult } from "@/lib/fec/types";
+import type { AngloSaxonLineResult, AnalysisResult } from "@/lib/fec/types";
 
-interface PnlTableProps {
+interface AngloSaxonPnlTableProps {
   yearResults: AnalysisResult[];
 }
 
-/** Lines that serve as section separators / visual grouping */
+/** Key subtotals that get section breaks above them */
 const SECTION_BREAKS = new Set([
-  "PL_030", "PL_070", "PL_140", "PL_150", "PL_180",
-  "PL_240", "PL_270", "PL_280", "PL_310", "PL_340",
+  "AS_030", "AS_070", "AS_100", "AS_120", "AS_160",
 ]);
 
-/** Lines to hide by default (control lines) */
-const HIDDEN_LINES = new Set(["PL_900", "PL_910"]);
-
-export function PnlTable({ yearResults }: PnlTableProps) {
-  const [modalLine, setModalLine] = useState<PnlLineResult | null>(null);
+export function AngloSaxonPnlTable({ yearResults }: AngloSaxonPnlTableProps) {
+  const [modalLine, setModalLine] = useState<AngloSaxonLineResult | null>(null);
 
   if (yearResults.length === 0) return null;
 
@@ -29,28 +25,19 @@ export function PnlTable({ yearResults }: PnlTableProps) {
   const latestResult = yearResults[yearResults.length - 1];
   const prevResult = yearResults.length >= 2 ? yearResults[yearResults.length - 2] : null;
 
-  // Use latest year's line structure as reference
-  const visibleLines = latestResult.pnl.filter((l) => !HIDDEN_LINES.has(l.id));
-
   // Build lookup maps per year
   const yearLookups = yearResults.map((yr) => {
-    const map = new Map<string, PnlLineResult>();
-    for (const line of yr.pnl) map.set(line.id, line);
+    const map = new Map<string, AngloSaxonLineResult>();
+    for (const line of yr.angloSaxonPnl) map.set(line.id, line);
     return map;
   });
-
-  // Check control line (latest year only)
-  const controlLine = latestResult.pnl.find((l) => l.id === "PL_900");
-  const rnLine = latestResult.pnl.find((l) => l.id === "PL_340");
-  const hasControlDiff =
-    controlLine && rnLine && Math.abs(controlLine.amount - rnLine.amount) > 1;
 
   return (
     <>
       <Card className="h-full">
         <CardHeader className="pb-3">
           <CardTitle className="text-base font-semibold text-white">
-            Compte de Résultat détaillé
+            P&L — Format M&A
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
@@ -59,7 +46,7 @@ export function PnlTable({ yearResults }: PnlTableProps) {
               <thead className="sticky top-0 bg-[#12121a] z-10">
                 <tr className="border-b border-white/[0.08]">
                   <th className="py-2 px-4 text-left text-xs font-medium text-[#8b8b9e] min-w-[200px]">
-                    Libellé
+                    Line Item
                   </th>
                   {yearResults.map((yr) => (
                     <th key={yr.fiscalYear} className="py-2 px-3 text-right text-xs font-medium text-[#8b8b9e] whitespace-nowrap">
@@ -79,10 +66,10 @@ export function PnlTable({ yearResults }: PnlTableProps) {
                 </tr>
               </thead>
               <tbody>
-                {visibleLines.map((line) => {
+                {latestResult.angloSaxonPnl.map((line) => {
                   const isKey = line.is_key_subtotal;
                   const isSubtotal = line.type === "subtotal";
-                  const isClickable = line.type === "account" && line.details.length > 0;
+                  const isClickable = line.entries.length > 0 || line.details.length > 0;
                   const hasSectionBreak = SECTION_BREAKS.has(line.id);
 
                   // Variation between last two years
@@ -100,7 +87,7 @@ export function PnlTable({ yearResults }: PnlTableProps) {
                         ${isKey ? "bg-white/[0.06] border-white/[0.08]" : "border-white/[0.04]"}
                         ${isSubtotal && !isKey ? "bg-white/[0.03]" : ""}
                         ${isClickable ? "cursor-pointer hover:bg-white/[0.04]" : ""}
-                        ${hasSectionBreak ? "border-t border-t-white/[0.08]" : ""}
+                        ${hasSectionBreak ? "border-t-2 border-t-white/[0.08]" : ""}
                       `}
                     >
                       <td
@@ -116,18 +103,12 @@ export function PnlTable({ yearResults }: PnlTableProps) {
                           {isClickable && (
                             <ChevronRight className="h-3 w-3 text-[#52526b] shrink-0" />
                           )}
-                          {line.label}
-                          {line.restatement_flag !== "none" && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-medium">
-                              {line.restatement_flag === "director_comp" && "Dir."}
-                              {line.restatement_flag === "lease_ifrs16" && "IFRS16"}
-                              {line.restatement_flag === "one_off" && "One-off"}
-                              {line.restatement_flag === "ic_risk" && "IC"}
-                              {line.restatement_flag === "cir_reclass" && "CIR"}
-                              {line.restatement_flag === "capex_proxy" && "CAPEX"}
-                              {line.restatement_flag === "cvae_reclass" && "CVAE"}
+                          <span>
+                            {line.label}
+                            <span className="ml-2 text-[10px] text-[#52526b] font-normal">
+                              {line.label_fr}
                             </span>
-                          )}
+                          </span>
                         </span>
                       </td>
                       {yearResults.map((yr, idx) => {
@@ -144,7 +125,7 @@ export function PnlTable({ yearResults }: PnlTableProps) {
                                 : "text-[#8b8b9e]"
                             } ${isNegative ? "text-red-400" : ""}`}
                           >
-                            {amount === 0 && line.type === "account"
+                            {amount === 0 && !isSubtotal
                               ? "—"
                               : formatAmountK(amount)}
                           </td>
@@ -153,12 +134,12 @@ export function PnlTable({ yearResults }: PnlTableProps) {
                       {isMultiYear && (
                         <>
                           <td className={`py-1.5 px-3 text-right font-mono text-xs whitespace-nowrap ${varAbsolute < 0 ? "text-red-400" : varAbsolute > 0 ? "text-emerald-400" : "text-[#52526b]"}`}>
-                            {line.type === "account" && latestAmount === 0 && prevAmount === 0
+                            {!isSubtotal && latestAmount === 0 && prevAmount === 0
                               ? "—"
                               : formatVariationAmount(varAbsolute)}
                           </td>
                           <td className={`py-1.5 px-3 text-right font-mono text-xs whitespace-nowrap ${(varPercent ?? 0) < 0 ? "text-red-400" : (varPercent ?? 0) > 0 ? "text-emerald-400" : "text-[#52526b]"}`}>
-                            {line.type === "account" && latestAmount === 0 && prevAmount === 0
+                            {!isSubtotal && latestAmount === 0 && prevAmount === 0
                               ? "—"
                               : formatVariationPercent(varPercent)}
                           </td>
@@ -170,33 +151,16 @@ export function PnlTable({ yearResults }: PnlTableProps) {
               </tbody>
             </table>
           </div>
-
-          {/* Control warning */}
-          {hasControlDiff && (
-            <div className="mx-4 mb-3 mt-2 rounded-lg bg-amber-500/10 border border-amber-500/20 p-3">
-              <p className="text-xs text-amber-300 font-medium">
-                ⚠ Écart de réconciliation
-              </p>
-              <p className="text-xs text-amber-400 mt-0.5">
-                Résultat net calculé ({formatAmountK(rnLine!.amount)}) ≠ Solde
-                compte 12x ({formatAmountK(controlLine!.amount)}). Écart :{" "}
-                {formatAmountK(Math.abs(rnLine!.amount - controlLine!.amount))}
-              </p>
-              <p className="text-[10px] text-amber-400 mt-1">
-                Normal si le FEC est avant affectation du résultat (compte 12x non mouvementé).
-              </p>
-            </div>
-          )}
         </CardContent>
       </Card>
 
-      {/* Detail modal */}
+      {/* Ledger drill-down modal */}
       {modalLine && (
-        <DetailModal
+        <LedgerModal
           open={!!modalLine}
           onClose={() => setModalLine(null)}
-          title={modalLine.label}
-          details={modalLine.details}
+          title={`${modalLine.label} — ${modalLine.label_fr}`}
+          entries={modalLine.entries}
         />
       )}
     </>

@@ -73,3 +73,21 @@ export function formatMonthShort(yearMonth: string): string {
   ];
   return monthNames[parseInt(month, 10) - 1];
 }
+
+/** Format variation in k€ with sign: "+1 235 k€" or "-456 k€" */
+export function formatVariationAmount(value: number): string {
+  const rounded = Math.round(value / 1000);
+  const formatted = frFormatter.format(Math.abs(rounded));
+  if (rounded > 0) return `+${formatted} k€`;
+  if (rounded < 0) return `-${formatted} k€`;
+  return "— k€";
+}
+
+/** Format variation percentage with sign: "+12,5 %" or "-3,2 %" */
+export function formatVariationPercent(value: number | null): string {
+  if (value === null) return "N/A";
+  const formatted = frFormatterPercent.format(Math.abs(value));
+  if (value > 0) return `+${formatted} %`;
+  if (value < 0) return `-${formatted} %`;
+  return "— %";
+}

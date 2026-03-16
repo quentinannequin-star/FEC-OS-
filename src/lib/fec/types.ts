@@ -37,17 +37,23 @@ export const SECTOR_LABELS: Record<CompanySector, string> = {
   distribution: "Distribution",
 };
 
-export interface Company {
+export interface FecYearFile {
   id: string;
-  name: string;
-  type: CompanyType;
-  sector: CompanySector;
+  fiscalYear: number;
   file: File | null;
   fileName: string | null;
   fileSize: number | null;
   parsedEntries: FecEntry[] | null;
   parseError: string | null;
   entryCount: number;
+}
+
+export interface Company {
+  id: string;
+  name: string;
+  type: CompanyType;
+  sector: CompanySector;
+  fecFiles: FecYearFile[];
 }
 
 // --- Mapping types (mirror the JSON structure) ---
@@ -108,6 +114,20 @@ export interface NetDebtMappingLine {
 
 // --- Computed Results ---
 
+/** Single ledger entry for full journal drill-down */
+export interface EntryDetail {
+  journalCode: string;
+  journalLib: string;
+  ecritureNum: string;
+  ecritureDate: Date;
+  pieceRef: string;
+  ecritureLib: string;
+  compteNum: string;
+  compteLib: string;
+  debit: number;
+  credit: number;
+}
+
 export interface AccountDetail {
   compteNum: string;
   compteLib: string;
@@ -125,6 +145,7 @@ export interface PnlLineResult {
   is_key_subtotal: boolean;
   restatement_flag: string;
   details: AccountDetail[];
+  entries: EntryDetail[];
 }
 
 export interface BfrLineResult {
@@ -134,6 +155,7 @@ export interface BfrLineResult {
   bfr_sign: BfrSign;
   amount: number;
   linked_ratio: string | null;
+  details: AccountDetail[];
 }
 
 export interface BfrMonthResult {
@@ -169,6 +191,35 @@ export interface KpiResult {
   isAlert: boolean;
 }
 
+// --- Anglo-Saxon P&L Reclassification ---
+
+export type AngloSaxonLineType = "source" | "subtotal";
+
+export interface AngloSaxonMappingLine {
+  id: string;
+  label: string;
+  label_fr: string;
+  type: AngloSaxonLineType;
+  /** For source lines: PL_xxx IDs to aggregate */
+  source_ids: string[];
+  /** Sign multiplier per source_id (+1 or -1) */
+  source_signs: number[];
+  /** For subtotals: formula referencing AS_xxx IDs */
+  formula: string | null;
+  is_key_subtotal: boolean;
+}
+
+export interface AngloSaxonLineResult {
+  id: string;
+  label: string;
+  label_fr: string;
+  type: AngloSaxonLineType;
+  amount: number;
+  is_key_subtotal: boolean;
+  details: AccountDetail[];
+  entries: EntryDetail[];
+}
+
 export interface AnalysisResult {
   companyId: string;
   companyName: string;
@@ -177,9 +228,20 @@ export interface AnalysisResult {
   fiscalYear: string;
   entryCount: number;
   pnl: PnlLineResult[];
+  angloSaxonPnl: AngloSaxonLineResult[];
   bfrMonthly: BfrMonthResult[];
   kpis: KpiResult[];
   unmappedAccounts: { compteNum: string; compteLib: string; debit: number; credit: number }[];
+}
+
+// --- Multi-Year ---
+
+export interface MultiYearAnalysisResult {
+  companyId: string;
+  companyName: string;
+  companyType: CompanyType;
+  companySector: CompanySector;
+  yearResults: AnalysisResult[];
 }
 
 // --- Workflow ---

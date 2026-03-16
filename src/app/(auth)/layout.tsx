@@ -27,18 +27,18 @@ export default function AuthLayout({
       </div>
 
       {/* Right panel — form */}
-      <div className="flex-1 flex flex-col items-center justify-center px-4 bg-white">
+      <div className="flex-1 flex flex-col items-center justify-center px-4 bg-[#0a0a0f]">
         {/* Mobile logo (hidden on desktop) */}
         <div className="mb-8 text-center lg:hidden">
-          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">
+          <h1 className="text-2xl font-semibold tracking-tight text-white">
             M&A OS
           </h1>
-          <p className="text-sm text-zinc-500 mt-1">Deal Execution Platform</p>
+          <p className="text-sm text-[#8b8b9e] mt-1">Deal Execution Platform</p>
         </div>
 
         {children}
 
-        <p className="mt-8 text-xs text-zinc-400 lg:hidden">
+        <p className="mt-8 text-xs text-[#52526b] lg:hidden">
           &copy; 2026 Alvora Partners — Confidential
         </p>
       </div>

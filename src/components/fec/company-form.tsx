@@ -25,12 +25,7 @@ export function CompanyForm({
       name: "",
       type: "operationnelle",
       sector: "esn",
-      file: null,
-      fileName: null,
-      fileSize: null,
-      parsedEntries: null,
-      parseError: null,
-      entryCount: 0,
+      fecFiles: [],
     };
     onCompaniesChange([...companies, newCompany]);
   }, [companies, onCompaniesChange]);
@@ -51,15 +46,16 @@ export function CompanyForm({
     [companies, onCompaniesChange]
   );
 
-  // At least one company with a parsed file
+  // At least one company with at least one parsed FEC file
+  const hasFiles = (c: Company) => c.fecFiles.some((f) => f.parsedEntries && f.parsedEntries.length > 0);
   const canLaunch =
     companies.length > 0 &&
-    companies.some((c) => c.parsedEntries && c.parsedEntries.length > 0) &&
-    companies.every((c) => c.name.trim() !== "" || !c.parsedEntries);
+    companies.some(hasFiles) &&
+    companies.every((c) => c.name.trim() !== "" || !hasFiles(c));
 
   // Count ready companies
   const readyCount = companies.filter(
-    (c) => c.parsedEntries && c.parsedEntries.length > 0 && c.name.trim() !== ""
+    (c) => hasFiles(c) && c.name.trim() !== ""
   ).length;
 
   return (
@@ -67,17 +63,17 @@ export function CompanyForm({
       {/* Header */}
       <div>
         <div className="flex items-center gap-3 mb-2">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-100">
-            <FileSpreadsheet className="h-5 w-5 text-zinc-700" />
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#e040fb]/10">
+            <FileSpreadsheet className="h-5 w-5 text-[#e040fb]" />
           </div>
           <div>
-            <h1 className="text-2xl font-semibold text-zinc-900">
+            <h1 className="text-2xl font-semibold text-white">
               FEC Analyzer
             </h1>
-            <p className="text-sm text-zinc-500">Analyseur Comptable M&A</p>
+            <p className="text-sm text-[#8b8b9e]">Analyseur Comptable M&A</p>
           </div>
         </div>
-        <p className="text-zinc-600 mt-4 leading-relaxed">
+        <p className="text-[#8b8b9e] mt-4 leading-relaxed">
           Ajoutez les sociétés du périmètre, indiquez leur nature (holding ou
           opérationnelle), puis glissez le FEC de chaque entité pour lancer
           l&apos;analyse.
@@ -100,12 +96,12 @@ export function CompanyForm({
 
       {/* Empty state */}
       {companies.length === 0 && (
-        <div className="border-2 border-dashed border-zinc-200 rounded-xl p-12 text-center">
-          <FileSpreadsheet className="h-10 w-10 text-zinc-300 mx-auto mb-4" />
-          <p className="text-sm font-medium text-zinc-600">
+        <div className="border-2 border-dashed border-white/[0.1] rounded-xl p-12 text-center">
+          <FileSpreadsheet className="h-10 w-10 text-[#52526b] mx-auto mb-4" />
+          <p className="text-sm font-medium text-[#8b8b9e]">
             Aucune société dans le périmètre
           </p>
-          <p className="text-xs text-zinc-400 mt-1">
+          <p className="text-xs text-[#52526b] mt-1">
             Cliquez sur &ldquo;Ajouter une entité&rdquo; pour commencer
           </p>
         </div>
@@ -125,7 +121,7 @@ export function CompanyForm({
         <div className="flex-1" />
 
         {readyCount > 0 && (
-          <span className="text-sm text-zinc-500">
+          <span className="text-sm text-[#8b8b9e]">
             {readyCount} entité{readyCount > 1 ? "s" : ""} prête{readyCount > 1 ? "s" : ""}
           </span>
         )}

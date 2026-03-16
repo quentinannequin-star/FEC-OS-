@@ -11,15 +11,20 @@ import type {
   BfrLineResult,
   BfrMonthResult,
   AccountDetail,
+  EntryDetail,
   AnalysisResult,
+  AngloSaxonLineResult,
+  AngloSaxonMappingLine,
   Company,
   CompanySector,
   KpiResult,
+  MultiYearAnalysisResult,
 } from "./types";
 import {
   PNL_MAPPING,
   BFR_MAPPING,
   KPI_MAPPING,
+  ANGLO_SAXON_PNL_MAPPING,
   PNL_EXCLUDED_JOURNALS,
   CLOSURE_JOURNALS,
   PNL_EXCLUDED_ACCOUNT_PREFIXES,
@@ -147,10 +152,10 @@ export function computePnl(entries: FecEntry[]): PnlLineResult[] {
   // 1. Filter entries for P&L
   const pnlEntries = filterPnlEntries(entries);
 
-  // 2. Build an index: mapping line ID → aggregated amounts + details
+  // 2. Build an index: mapping line ID → aggregated amounts + details + raw entries
   const lineAggregates = new Map<
     string,
-    { debitTotal: number; creditTotal: number; accounts: Map<string, AccountDetail> }
+    { debitTotal: number; creditTotal: number; accounts: Map<string, AccountDetail>; rawEntries: FecEntry[] }
   >();
 
   // Initialize for all account-type lines
@@ -160,6 +165,7 @@ export function computePnl(entries: FecEntry[]): PnlLineResult[] {
         debitTotal: 0,
         creditTotal: 0,
         accounts: new Map(),
+        rawEntries: [],
       });
     }
   }
@@ -176,6 +182,7 @@ export function computePnl(entries: FecEntry[]): PnlLineResult[] {
 
     agg.debitTotal += entry.Debit;
     agg.creditTotal += entry.Credit;
+    agg.rawEntries.push(entry);
 
     // Aggregate by account number for detail drill-down
     const existing = agg.accounts.get(entry.CompteNum);
@@ -244,6 +251,21 @@ export function computePnl(entries: FecEntry[]): PnlLineResult[] {
         )
       : [];
 
+    const entries: EntryDetail[] = agg
+      ? agg.rawEntries.map((e) => ({
+          journalCode: e.JournalCode,
+          journalLib: e.JournalLib,
+          ecritureNum: e.EcritureNum,
+          ecritureDate: e.EcritureDate,
+          pieceRef: e.PieceRef,
+          ecritureLib: e.EcritureLib,
+          compteNum: e.CompteNum,
+          compteLib: e.CompteLib,
+          debit: e.Debit,
+          credit: e.Credit,
+        }))
+      : [];
+
     return {
       id: line.id,
       label: line.label,
@@ -252,6 +274,7 @@ export function computePnl(entries: FecEntry[]): PnlLineResult[] {
       is_key_subtotal: line.is_key_subtotal,
       restatement_flag: line.restatement_flag,
       details,
+      entries,
     };
   });
 
@@ -307,15 +330,32 @@ export function computeMonthlyBfr(entries: FecEntry[]): BfrMonthResult[] {
     for (const mappingLine of accountLines) {
       const lineEntries = entryByLine.get(mappingLine.id) ?? [];
 
-      // Sum all entries up to and including this month
+      // Sum all entries up to and including this month + build account details
       let debitSum = 0;
       let creditSum = 0;
+      const accountAgg = new Map<string, AccountDetail>();
 
       for (const entry of lineEntries) {
         const entryMonth = getYearMonth(entry.EcritureDate);
         if (entryMonth <= month) {
           debitSum += entry.Debit;
           creditSum += entry.Credit;
+
+          const existing = accountAgg.get(entry.CompteNum);
+          if (existing) {
+            existing.debit += entry.Debit;
+            existing.credit += entry.Credit;
+            existing.entryCount += 1;
+          } else {
+            accountAgg.set(entry.CompteNum, {
+              compteNum: entry.CompteNum,
+              compteLib: entry.CompteLib,
+              debit: entry.Debit,
+              credit: entry.Credit,
+              solde: 0,
+              entryCount: 1,
+            });
+          }
         }
       }
 
@@ -328,6 +368,15 @@ export function computeMonthlyBfr(entries: FecEntry[]): BfrMonthResult[] {
         balance = 0;
       }
 
+      // Compute solde for each account detail
+      for (const detail of accountAgg.values()) {
+        if (mappingLine.balance === "debit_minus_credit") {
+          detail.solde = detail.debit - detail.credit;
+        } else {
+          detail.solde = detail.credit - detail.debit;
+        }
+      }
+
       lineValues.set(mappingLine.id, balance);
 
       lines.push({
@@ -337,6 +386,7 @@ export function computeMonthlyBfr(entries: FecEntry[]): BfrMonthResult[] {
         bfr_sign: mappingLine.bfr_sign,
         amount: balance,
         linked_ratio: mappingLine.linked_ratio,
+        details: Array.from(accountAgg.values()).sort((a, b) => a.compteNum.localeCompare(b.compteNum)),
       });
     }
 
@@ -353,6 +403,7 @@ export function computeMonthlyBfr(entries: FecEntry[]): BfrMonthResult[] {
         bfr_sign: mappingLine.bfr_sign,
         amount,
         linked_ratio: mappingLine.linked_ratio,
+        details: [],
       });
     }
 
@@ -366,6 +417,87 @@ export function computeMonthlyBfr(entries: FecEntry[]): BfrMonthResult[] {
   }
 
   return monthlyResults;
+}
+
+// ============================================================
+// ANGLO-SAXON P&L — reclassification of SIG P&L lines
+// ============================================================
+
+export function computeAngloSaxonPnl(
+  sigPnl: PnlLineResult[],
+  mapping: AngloSaxonMappingLine[]
+): AngloSaxonLineResult[] {
+  // Build lookup from SIG P&L
+  const sigLookup = new Map<string, PnlLineResult>();
+  for (const line of sigPnl) {
+    sigLookup.set(line.id, line);
+  }
+
+  const asValues = new Map<string, number>();
+  const results: AngloSaxonLineResult[] = [];
+
+  for (const line of mapping) {
+    if (line.type === "source") {
+      // Aggregate from referenced PL lines
+      let amount = 0;
+      const mergedDetails: AccountDetail[] = [];
+      const mergedEntries: EntryDetail[] = [];
+
+      for (let i = 0; i < line.source_ids.length; i++) {
+        const plId = line.source_ids[i];
+        const sign = line.source_signs[i];
+        const plLine = sigLookup.get(plId);
+
+        if (plLine) {
+          amount += plLine.amount * sign;
+
+          // For source lines referencing subtotals (like PL_030), we don't have direct entries
+          // For account lines, we merge their details and entries
+          if (plLine.type === "account") {
+            mergedDetails.push(...plLine.details);
+            mergedEntries.push(...plLine.entries);
+          } else if (plLine.type === "subtotal") {
+            // For subtotals, collect entries from all contributing account lines
+            // by traversing the SIG P&L for referenced lines
+            // (entries are only on account-type lines, subtotals aggregate them)
+          }
+        }
+      }
+
+      asValues.set(line.id, amount);
+      results.push({
+        id: line.id,
+        label: line.label,
+        label_fr: line.label_fr,
+        type: line.type,
+        amount,
+        is_key_subtotal: line.is_key_subtotal,
+        details: mergedDetails,
+        entries: mergedEntries,
+      });
+    } else {
+      // Subtotal — evaluate formula
+      const amount = evaluateFormula(line.formula!, asValues);
+      asValues.set(line.id, amount);
+
+      // For subtotals, merge details/entries from all source AS lines that feed into it
+      const mergedDetails: AccountDetail[] = [];
+      const mergedEntries: EntryDetail[] = [];
+
+      results.push({
+        id: line.id,
+        label: line.label,
+        label_fr: line.label_fr,
+        type: line.type,
+        amount,
+        is_key_subtotal: line.is_key_subtotal,
+        details: mergedDetails,
+        entries: mergedEntries,
+      });
+    }
+  }
+
+  return results;
 }
 
 // ============================================================
@@ -515,9 +647,14 @@ function findUnmappedAccounts(
 // MAIN ORCHESTRATOR
 // ============================================================
 
-export function analyzeCompany(company: Company): AnalysisResult {
-  const entries = company.parsedEntries ?? [];
-
+/**
+ * Core analysis function: analyzes a set of FEC entries for a company.
+ * This is the building block for both single-year and multi-year analysis.
+ */
+export function analyzeEntries(
+  entries: FecEntry[],
+  companyInfo: { id: string; name: string; type: Company["type"]; sector: CompanySector }
+): AnalysisResult {
   // Detect fiscal year
   const dates = entries
     .map((e) => e.EcritureDate.getTime())
@@ -529,25 +666,64 @@ export function analyzeCompany(company: Company): AnalysisResult {
   // Compute P&L
   const pnl = computePnl(entries);
 
+  // Compute Anglo-Saxon P&L (reclassification of SIG)
+  const angloSaxonPnl = computeAngloSaxonPnl(pnl, ANGLO_SAXON_PNL_MAPPING);
+
   // Compute BFR monthly
   const bfrMonthly = computeMonthlyBfr(entries);
 
   // Compute KPIs (filtered by sector)
-  const kpis = computeKpis(pnl, bfrMonthly, company.sector);
+  const kpis = computeKpis(pnl, bfrMonthly, companyInfo.sector);
 
   // Find unmapped accounts
   const unmappedAccounts = findUnmappedAccounts(entries);
+
+  return {
+    companyId: companyInfo.id,
+    companyName: companyInfo.name,
+    companyType: companyInfo.type,
+    companySector: companyInfo.sector,
+    fiscalYear,
+    entryCount: entries.length,
+    pnl,
+    angloSaxonPnl,
+    bfrMonthly,
+    kpis,
+    unmappedAccounts,
+  };
+}
+
+/**
+ * Multi-year analysis: runs analyzeEntries() for each FEC file in a company,
+ * sorted chronologically by fiscal year.
+ */
+export function analyzeCompanyMultiYear(company: Company): MultiYearAnalysisResult {
+  const companyInfo = {
+    id: company.id,
+    name: company.name,
+    type: company.type,
+    sector: company.sector,
+  };
+
+  const yearResults: AnalysisResult[] = [];
+
+  // Sort FEC files by fiscal year ascending
+  const sortedFiles = [...company.fecFiles]
+    .filter((f) => f.parsedEntries && f.parsedEntries.length > 0)
+    .sort((a, b) => a.fiscalYear - b.fiscalYear);
+
+  for (const fecFile of sortedFiles) {
+    const result = analyzeEntries(fecFile.parsedEntries!, companyInfo);
+    // Override fiscalYear with the user-specified year label
+    result.fiscalYear = `FY ${fecFile.fiscalYear}`;
+    yearResults.push(result);
+  }
 
   return {
     companyId: company.id,
     companyName: company.name,
     companyType: company.type,
     companySector: company.sector,
-    fiscalYear,
-    entryCount: entries.length,
-    pnl,
-    bfrMonthly,
-    kpis,
-    unmappedAccounts,
+    yearResults,
   };
 }

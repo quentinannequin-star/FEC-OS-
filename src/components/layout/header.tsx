@@ -47,16 +47,16 @@ export function Header({
     : userEmail[0]?.toUpperCase() || "U";
 
   return (
-    <header className="sticky top-0 z-40 flex h-14 items-center gap-4 border-b border-zinc-200 bg-white px-4 md:px-6">
+    <header className="sticky top-0 z-40 flex h-14 items-center gap-4 border-b border-white/[0.08] bg-[#12121a] px-4 md:px-6">
       {/* Mobile menu trigger */}
       <Sheet>
         <SheetTrigger
-          className="md:hidden flex items-center justify-center h-8 w-8 rounded-md hover:bg-zinc-100 transition-colors"
+          className="md:hidden flex items-center justify-center h-8 w-8 rounded-md hover:bg-white/[0.06] transition-colors"
           aria-label="Menu"
         >
-          <Menu className="h-5 w-5 text-zinc-600" />
+          <Menu className="h-5 w-5 text-[#8b8b9e]" />
         </SheetTrigger>
-        <SheetContent side="left" className="w-[260px] p-0 bg-zinc-950">
+        <SheetContent side="left" className="w-[260px] p-0 bg-[#0d0d14]">
           <MobileSidebar modules={modules} userFullName={userFullName} />
         </SheetContent>
       </Sheet>
@@ -70,7 +70,7 @@ export function Header({
           aria-label="Menu utilisateur"
         >
           <Avatar className="h-8 w-8">
-            <AvatarFallback className="bg-zinc-900 text-white text-xs">
+            <AvatarFallback className="bg-[#1a1a2e] text-[#e040fb] text-xs font-semibold">
               {initials}
             </AvatarFallback>
           </Avatar>

@@ -4,13 +4,15 @@ import { useState } from "react";
 import { ArrowLeft, Building2, Crown, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PnlTable } from "./pnl-table";
+import { AngloSaxonPnlTable } from "./anglo-saxon-pnl-table";
 import { BfrChart } from "./bfr-chart";
 import { KpiCards } from "./kpi-cards";
-import type { AnalysisResult } from "@/lib/fec/types";
+import type { MultiYearAnalysisResult } from "@/lib/fec/types";
 
 interface ResultsViewProps {
-  results: AnalysisResult[];
+  results: MultiYearAnalysisResult[];
   onBack: () => void;
 }
 
@@ -18,7 +20,12 @@ export function ResultsView({ results, onBack }: ResultsViewProps) {
   const [activeTab, setActiveTab] = useState(0);
 
   const current = results[activeTab];
-  if (!current) return null;
+  if (!current || current.yearResults.length === 0) return null;
+
+  const latestYear = current.yearResults[current.yearResults.length - 1];
+  const allYearLabels = current.yearResults.map((yr) => yr.fiscalYear).join(" | ");
+  const totalEntries = current.yearResults.reduce((sum, yr) => sum + yr.entryCount, 0);
+  const totalUnmapped = latestYear.unmappedAccounts.length;
 
   return (
     <div className="space-y-4">
@@ -34,10 +41,10 @@ export function ResultsView({ results, onBack }: ResultsViewProps) {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
-            <h1 className="text-xl font-semibold text-zinc-900">
+            <h1 className="text-xl font-semibold text-white">
               Résultats de l&apos;analyse
             </h1>
-            <p className="text-sm text-zinc-500">
+            <p className="text-sm text-[#8b8b9e]">
               {results.length} entité{results.length > 1 ? "s" : ""} analysée{results.length > 1 ? "s" : ""}
             </p>
           </div>
@@ -46,7 +53,7 @@ export function ResultsView({ results, onBack }: ResultsViewProps) {
 
       {/* Tabs if multiple companies */}
       {results.length > 1 && (
-        <div className="flex gap-2 border-b border-zinc-200 pb-0">
+        <div className="flex gap-2 border-b border-white/[0.08] pb-0">
           {results.map((r, idx) => (
             <button
               key={r.companyId}
@@ -55,8 +62,8 @@ export function ResultsView({ results, onBack }: ResultsViewProps) {
                 flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 transition-colors -mb-[1px]
                 ${
                   idx === activeTab
-                    ? "border-zinc-900 text-zinc-900"
-                    : "border-transparent text-zinc-500 hover:text-zinc-700"
+                    ? "border-[#e040fb] text-white"
+                    : "border-transparent text-[#8b8b9e] hover:text-white"
                 }
               `}
             >
@@ -72,16 +79,16 @@ export function ResultsView({ results, onBack }: ResultsViewProps) {
       )}
 
       {/* Company info bar */}
-      <div className="flex items-center gap-3 text-sm text-zinc-500">
+      <div className="flex items-center gap-3 text-sm text-[#8b8b9e]">
         <Badge variant="secondary">
           {current.companyType === "holding" ? "Holding" : "Opérationnelle"}
         </Badge>
-        <span>{current.fiscalYear}</span>
-        <span>{current.entryCount.toLocaleString("fr-FR")} écritures</span>
-        {current.unmappedAccounts.length > 0 && (
-          <span className="inline-flex items-center gap-1 text-amber-600">
+        <span>{allYearLabels}</span>
+        <span>{totalEntries.toLocaleString("fr-FR")} écritures</span>
+        {totalUnmapped > 0 && (
+          <span className="inline-flex items-center gap-1 text-amber-400">
             <AlertTriangle className="h-3.5 w-3.5" />
-            {current.unmappedAccounts.length} compte{current.unmappedAccounts.length > 1 ? "s" : ""} non mappé{current.unmappedAccounts.length > 1 ? "s" : ""}
+            {totalUnmapped} compte{totalUnmapped > 1 ? "s" : ""} non mappé{totalUnmapped > 1 ? "s" : ""}
           </span>
         )}
       </div>
@@ -90,13 +97,24 @@ export function ResultsView({ results, onBack }: ResultsViewProps) {
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
         {/* P&L — 3/5 width */}
         <div className="lg:col-span-3">
-          <PnlTable lines={current.pnl} />
+          <Tabs defaultValue="ma">
+            <TabsList>
+              <TabsTrigger value="ma">P&L M&A</TabsTrigger>
+              <TabsTrigger value="sig">Détail (SIG)</TabsTrigger>
+            </TabsList>
+            <TabsContent value="ma" className="mt-3">
+              <AngloSaxonPnlTable yearResults={current.yearResults} />
+            </TabsContent>
+            <TabsContent value="sig" className="mt-3">
+              <PnlTable yearResults={current.yearResults} />
+            </TabsContent>
+          </Tabs>
         </div>
 
         {/* BFR + KPIs — 2/5 width */}
         <div className="lg:col-span-2 space-y-4">
-          <BfrChart monthly={current.bfrMonthly} />
-          <KpiCards kpis={current.kpis} />
+          <BfrChart yearResults={current.yearResults} />
+          <KpiCards yearResults={current.yearResults} />
         </div>
       </div>
     </div>

@@ -78,9 +78,9 @@ export function LoginForm() {
             Se connecter
           </Button>
         </form>
-        <p className="mt-4 text-center text-sm text-zinc-500">
+        <p className="mt-4 text-center text-sm text-[#8b8b9e]">
           Pas encore de compte ?{" "}
-          <Link href="/register" className="text-zinc-900 underline">
+          <Link href="/register" className="text-[#e040fb] hover:text-[#c030d9] underline">
             Créer un compte
           </Link>
         </p>

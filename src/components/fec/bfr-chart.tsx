@@ -9,29 +9,176 @@ import {
   Tooltip,
   ResponsiveContainer,
   ReferenceLine,
-  Cell,
+  Legend,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { DetailModal } from "./detail-modal";
+import { BfrDetailModal } from "./bfr-detail-modal";
 import { formatAmountK, formatMonthShort } from "@/lib/fec/format";
-import type { BfrMonthResult, AccountDetail } from "@/lib/fec/types";
+import type { AnalysisResult, BfrMonthResult } from "@/lib/fec/types";
+
+/** Vivid gradient: oldest → newest */
+const YEAR_COLORS = ["#a78bfa", "#22d3ee", "#e040fb", "#34d399", "#fbbf24"];
 
 interface BfrChartProps {
-  monthly: BfrMonthResult[];
+  yearResults: AnalysisResult[];
 }
 
-interface ChartDataPoint {
-  month: string;
-  monthLabel: string;
-  operatingBfr: number;
-  operatingAssets: number;
-  operatingLiabilities: number;
-}
-
-export function BfrChart({ monthly }: BfrChartProps) {
+export function BfrChart({ yearResults }: BfrChartProps) {
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
 
-  const chartData: ChartDataPoint[] = monthly.map((m) => ({
+  if (yearResults.length === 0) return null;
+
+  const isMultiYear = yearResults.length > 1;
+
+  // Extract fiscal year labels from results
+  const yearLabels = yearResults.map((yr) => yr.fiscalYear);
+
+  // Assign colors: darkest for most recent
+  const colorMap: Record<string, string> = {};
+  const totalYears = yearLabels.length;
+  yearLabels.forEach((label, idx) => {
+    const colorIdx = Math.max(0, YEAR_COLORS.length - totalYears + idx);
+    colorMap[label] = YEAR_COLORS[colorIdx];
+  });
+
+  if (!isMultiYear) {
+    // Single year: use original simple chart
+    return (
+      <SingleYearBfrChart
+        monthly={yearResults[0].bfrMonthly}
+        yearLabel={yearLabels[0]}
+      />
+    );
+  }
+
+  // Multi-year: build chart data with months 01-12 on X-axis
+  const MONTHS = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"];
+  const monthNames = ["Jan", "Fév", "Mar", "Avr", "Mai", "Juin", "Juil", "Août", "Sep", "Oct", "Nov", "Déc"];
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const chartData: any[] = MONTHS.map((m, idx) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const point: any = { month: m, monthLabel: monthNames[idx] };
+    for (const yr of yearResults) {
+      const monthData = yr.bfrMonthly.find((bm) => bm.month.endsWith(`-${m}`));
+      point[yr.fiscalYear] = monthData ? Math.round(monthData.operatingBfr / 1000) : null;
+    }
+    return point;
+  });
+
+  // Filter out months with no data for any year
+  const filteredData = chartData.filter((point) =>
+    yearLabels.some((label) => point[label] !== null)
+  );
+
+  // For BFR detail modal, use most recent year
+  const latestResult = yearResults[yearResults.length - 1];
+  const selectedMonthData = selectedMonth
+    ? latestResult.bfrMonthly.find((m) => m.month.endsWith(`-${selectedMonth}`))
+    : null;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: any[]; label?: string }) => {
+    if (!active || !payload?.length) return null;
+    return (
+      <div className="bg-[#1a1a2e] border border-white/10 rounded-lg shadow-lg p-3 text-xs">
+        <p className="font-medium text-white mb-1">{label}</p>
+        {payload.map((entry) => (
+          <p key={entry.dataKey} className="text-[#8b8b9e]">
+            <span
+              className="inline-block w-2 h-2 rounded-full mr-1.5"
+              style={{ backgroundColor: entry.color }}
+            />
+            {entry.dataKey} : <span className="font-mono">{entry.value ?? "—"} k€</span>
+          </p>
+        ))}
+      </div>
+    );
+  };
+
+  return (
+    <>
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base font-semibold text-white">
+            BFR Opérationnel — Comparaison multi-exercices
+          </CardTitle>
+          <p className="text-xs text-[#8b8b9e]">
+            Cliquez sur un mois pour le détail
+          </p>
+        </CardHeader>
+        <CardContent>
+          <div className="h-[300px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={filteredData}
+                margin={{ top: 10, right: 10, left: 10, bottom: 0 }}
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                onClick={(state: any) => {
+                  if (state?.activePayload?.[0]?.payload) {
+                    setSelectedMonth(state.activePayload[0].payload.month);
+                  }
+                }}
+              >
+                <XAxis
+                  dataKey="monthLabel"
+                  tick={{ fontSize: 11, fill: "#8b8b9e" }}
+                  tickLine={false}
+                  axisLine={{ stroke: "rgba(255,255,255,0.08)" }}
+                />
+                <YAxis
+                  tick={{ fontSize: 11, fill: "#8b8b9e" }}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(v) => `${v} k€`}
+                  width={70}
+                />
+                <Tooltip content={<CustomTooltip />} />
+                <ReferenceLine y={0} stroke="rgba(255,255,255,0.1)" />
+                <Legend
+                  verticalAlign="top"
+                  height={30}
+                  formatter={(value) => <span className="text-xs text-[#8b8b9e]">{value}</span>}
+                />
+                {yearLabels.map((label) => (
+                  <Bar
+                    key={label}
+                    dataKey={label}
+                    fill={colorMap[label]}
+                    radius={[2, 2, 0, 0]}
+                    cursor="pointer"
+                    maxBarSize={24}
+                  />
+                ))}
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* BFR detail modal */}
+      {selectedMonthData && (
+        <BfrDetailModal
+          open={!!selectedMonth}
+          onClose={() => setSelectedMonth(null)}
+          monthData={selectedMonthData}
+        />
+      )}
+    </>
+  );
+}
+
+/** Simple single-year BFR chart (preserves original behavior) */
+function SingleYearBfrChart({
+  monthly,
+  yearLabel,
+}: {
+  monthly: BfrMonthResult[];
+  yearLabel: string;
+}) {
+  const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
+
+  const chartData = monthly.map((m) => ({
     month: m.month,
     monthLabel: formatMonthShort(m.month),
     operatingBfr: Math.round(m.operatingBfr / 1000),
@@ -39,46 +186,21 @@ export function BfrChart({ monthly }: BfrChartProps) {
     operatingLiabilities: Math.round(m.operatingLiabilities / 1000),
   }));
 
-  // Build detail data for selected month
   const selectedMonthData = selectedMonth
     ? monthly.find((m) => m.month === selectedMonth)
     : null;
 
-  const detailForModal: AccountDetail[] = selectedMonthData
-    ? selectedMonthData.lines
-        .filter(
-          (l) =>
-            l.category === "operating_asset" ||
-            l.category === "operating_liability"
-        )
-        .map((l) => ({
-          compteNum: l.id,
-          compteLib: l.label,
-          debit: l.category === "operating_asset" ? l.amount : 0,
-          credit: l.category === "operating_liability" ? l.amount : 0,
-          solde: l.amount,
-          entryCount: 0,
-        }))
-    : [];
-
-  const CustomTooltip = ({ active, payload, label }: {
-    active?: boolean;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    payload?: any[];
-    label?: string;
-  }) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: any[] }) => {
     if (!active || !payload?.length) return null;
-    const data = payload[0]?.payload as ChartDataPoint;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const data = payload[0]?.payload as any;
     return (
-      <div className="bg-white border border-zinc-200 rounded-lg shadow-lg p-3 text-xs">
-        <p className="font-medium text-zinc-900 mb-1">{data.month}</p>
-        <p className="text-zinc-600">
-          Actif circulant : <span className="font-mono">{data.operatingAssets} k€</span>
-        </p>
-        <p className="text-zinc-600">
-          Passif circulant : <span className="font-mono">{data.operatingLiabilities} k€</span>
-        </p>
-        <p className="font-medium text-zinc-900 mt-1 pt-1 border-t border-zinc-100">
+      <div className="bg-[#1a1a2e] border border-white/10 rounded-lg shadow-lg p-3 text-xs">
+        <p className="font-medium text-white mb-1">{data.month}</p>
+        <p className="text-[#8b8b9e]">Actif circulant : <span className="font-mono">{data.operatingAssets} k€</span></p>
+        <p className="text-[#8b8b9e]">Passif circulant : <span className="font-mono">{data.operatingLiabilities} k€</span></p>
+        <p className="font-medium text-white mt-1 pt-1 border-t border-white/10">
           BFR opérationnel : <span className="font-mono">{data.operatingBfr} k€</span>
         </p>
       </div>
@@ -89,10 +211,10 @@ export function BfrChart({ monthly }: BfrChartProps) {
     <>
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base font-semibold text-zinc-900">
+          <CardTitle className="text-base font-semibold text-white">
             BFR Opérationnel Mensuel
           </CardTitle>
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-[#8b8b9e]">
             Cliquez sur une barre pour le détail
           </p>
         </CardHeader>
@@ -111,65 +233,49 @@ export function BfrChart({ monthly }: BfrChartProps) {
               >
                 <XAxis
                   dataKey="monthLabel"
-                  tick={{ fontSize: 11, fill: "#71717a" }}
+                  tick={{ fontSize: 11, fill: "#8b8b9e" }}
                   tickLine={false}
-                  axisLine={{ stroke: "#e4e4e7" }}
+                  axisLine={{ stroke: "rgba(255,255,255,0.08)" }}
                 />
                 <YAxis
-                  tick={{ fontSize: 11, fill: "#71717a" }}
+                  tick={{ fontSize: 11, fill: "#8b8b9e" }}
                   tickLine={false}
                   axisLine={false}
                   tickFormatter={(v) => `${v} k€`}
                   width={70}
                 />
                 <Tooltip content={<CustomTooltip />} />
-                <ReferenceLine y={0} stroke="#d4d4d8" />
+                <ReferenceLine y={0} stroke="rgba(255,255,255,0.1)" />
                 <Bar
                   dataKey="operatingBfr"
                   radius={[4, 4, 0, 0]}
                   cursor="pointer"
                   maxBarSize={40}
-                >
-                  {chartData.map((entry, index) => (
-                    <Cell
-                      key={index}
-                      fill={entry.operatingBfr >= 0 ? "#3f3f46" : "#ef4444"}
-                      fillOpacity={
-                        selectedMonth === entry.month ? 1 : 0.7
-                      }
-                    />
-                  ))}
-                </Bar>
+                  fill="#e040fb"
+                />
               </BarChart>
             </ResponsiveContainer>
           </div>
 
           {/* Summary stats */}
           {chartData.length > 0 && (
-            <div className="grid grid-cols-3 gap-3 mt-4 pt-3 border-t border-zinc-100">
+            <div className="grid grid-cols-3 gap-3 mt-4 pt-3 border-t border-white/[0.08]">
               <div className="text-center">
-                <p className="text-xs text-zinc-500">Minimum</p>
-                <p className="text-sm font-semibold font-mono text-zinc-900">
-                  {formatAmountK(
-                    Math.min(...monthly.map((m) => m.operatingBfr))
-                  )}
+                <p className="text-xs text-[#8b8b9e]">Minimum</p>
+                <p className="text-sm font-semibold font-mono text-white">
+                  {formatAmountK(Math.min(...monthly.map((m) => m.operatingBfr)))}
                 </p>
               </div>
               <div className="text-center">
-                <p className="text-xs text-zinc-500">Moyen</p>
-                <p className="text-sm font-semibold font-mono text-zinc-900">
-                  {formatAmountK(
-                    monthly.reduce((s, m) => s + m.operatingBfr, 0) /
-                      monthly.length
-                  )}
+                <p className="text-xs text-[#8b8b9e]">Moyen</p>
+                <p className="text-sm font-semibold font-mono text-white">
+                  {formatAmountK(monthly.reduce((s, m) => s + m.operatingBfr, 0) / monthly.length)}
                 </p>
               </div>
               <div className="text-center">
-                <p className="text-xs text-zinc-500">Maximum</p>
-                <p className="text-sm font-semibold font-mono text-zinc-900">
-                  {formatAmountK(
-                    Math.max(...monthly.map((m) => m.operatingBfr))
-                  )}
+                <p className="text-xs text-[#8b8b9e]">Maximum</p>
+                <p className="text-sm font-semibold font-mono text-white">
+                  {formatAmountK(Math.max(...monthly.map((m) => m.operatingBfr)))}
                 </p>
               </div>
             </div>
@@ -177,13 +283,12 @@ export function BfrChart({ monthly }: BfrChartProps) {
         </CardContent>
       </Card>
 
-      {/* Detail modal */}
-      {selectedMonth && (
-        <DetailModal
+      {/* Structured BFR detail modal */}
+      {selectedMonthData && (
+        <BfrDetailModal
           open={!!selectedMonth}
           onClose={() => setSelectedMonth(null)}
-          title={`BFR détail — ${selectedMonth}`}
-          details={detailForModal}
+          monthData={selectedMonthData}
         />
       )}
     </>

@@ -26,13 +26,13 @@ export default async function NdaPage() {
     .single();
 
   return (
-    <div className="min-h-screen bg-white flex flex-col items-center justify-center px-4 py-12">
+    <div className="min-h-screen bg-[#0a0a0f] flex flex-col items-center justify-center px-4 py-12">
       <div className="w-full max-w-2xl">
         <div className="mb-6 text-center">
-          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">
+          <h1 className="text-2xl font-semibold tracking-tight text-white">
             M&A OS
           </h1>
-          <p className="text-sm text-zinc-500 mt-1">
+          <p className="text-sm text-[#8b8b9e] mt-1">
             Accord de Confidentialité
           </p>
         </div>

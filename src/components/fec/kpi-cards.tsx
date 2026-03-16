@@ -2,11 +2,11 @@
 
 import { Card, CardContent } from "@/components/ui/card";
 import { formatPercent, formatDays, formatMultiple, formatAmountK } from "@/lib/fec/format";
-import type { KpiResult } from "@/lib/fec/types";
-import { AlertTriangle } from "lucide-react";
+import type { KpiResult, AnalysisResult } from "@/lib/fec/types";
+import { AlertTriangle, TrendingUp, TrendingDown } from "lucide-react";
 
 interface KpiCardsProps {
-  kpis: KpiResult[];
+  yearResults: AnalysisResult[];
 }
 
 function formatKpiValue(value: number | null, unit: string): string {
@@ -43,69 +43,105 @@ function getCategoryLabel(category: string): string {
 function getCategoryColor(category: string): string {
   switch (category) {
     case "profitability":
-      return "border-l-zinc-700";
+      return "border-l-[#e040fb]";
     case "activity":
-      return "border-l-zinc-500";
+      return "border-l-[#22d3ee]";
     case "leverage":
-      return "border-l-zinc-400";
+      return "border-l-[#a78bfa]";
     case "coverage":
-      return "border-l-zinc-300";
+      return "border-l-[#34d399]";
     default:
-      return "border-l-zinc-200";
+      return "border-l-[#8b8b9e]";
   }
 }
 
-export function KpiCards({ kpis }: KpiCardsProps) {
+export function KpiCards({ yearResults }: KpiCardsProps) {
+  if (yearResults.length === 0) return null;
+
+  const latestKpis = yearResults[yearResults.length - 1].kpis;
+  const prevKpis = yearResults.length >= 2 ? yearResults[yearResults.length - 2].kpis : null;
+  const isMultiYear = yearResults.length > 1;
+
+  // Build prev lookup
+  const prevLookup = new Map<string, KpiResult>();
+  if (prevKpis) {
+    for (const kpi of prevKpis) prevLookup.set(kpi.id, kpi);
+  }
+
   // Group KPIs by category
-  const categories = Array.from(new Set(kpis.map((k) => k.category)));
+  const categories = Array.from(new Set(latestKpis.map((k) => k.category)));
 
   return (
     <div className="space-y-4">
       {categories.map((category) => {
-        const categoryKpis = kpis.filter((k) => k.category === category);
+        const categoryKpis = latestKpis.filter((k) => k.category === category);
         return (
           <div key={category}>
-            <h3 className="text-xs font-medium text-zinc-500 uppercase tracking-wide mb-2">
+            <h3 className="text-xs font-medium text-[#8b8b9e] uppercase tracking-wide mb-2">
               {getCategoryLabel(category)}
             </h3>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-              {categoryKpis.map((kpi) => (
-                <Card
-                  key={kpi.id}
-                  className={`border-l-4 ${getCategoryColor(category)} ${
-                    kpi.isAlert
-                      ? "ring-1 ring-amber-300 bg-amber-50/30"
-                      : ""
-                  }`}
-                >
-                  <CardContent className="p-3">
-                    <div className="flex items-start justify-between gap-1">
-                      <p className="text-xs text-zinc-500 leading-tight mb-1">
-                        {kpi.name}
+              {categoryKpis.map((kpi) => {
+                const prev = prevLookup.get(kpi.id);
+                const hasTrend = isMultiYear && prev && kpi.value !== null && prev.value !== null;
+                const delta = hasTrend ? kpi.value! - prev!.value! : 0;
+                const isPositiveTrend = delta > 0;
+
+                return (
+                  <Card
+                    key={kpi.id}
+                    className={`border-l-4 ${getCategoryColor(category)} ${
+                      kpi.isAlert
+                        ? "ring-1 ring-amber-500/30 bg-amber-500/10"
+                        : ""
+                    }`}
+                  >
+                    <CardContent className="p-3">
+                      <div className="flex items-start justify-between gap-1">
+                        <p className="text-xs text-[#8b8b9e] leading-tight mb-1">
+                          {kpi.name}
+                        </p>
+                        {kpi.isAlert && (
+                          <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
+                        )}
+                      </div>
+                      <p
+                        className={`text-lg font-bold font-mono ${
+                          kpi.value === null
+                            ? "text-[#52526b]"
+                            : kpi.isAlert
+                            ? "text-amber-400"
+                            : kpi.value < 0
+                            ? "text-red-400"
+                            : "text-white"
+                        }`}
+                      >
+                        {formatKpiValue(kpi.value, kpi.unit)}
                       </p>
-                      {kpi.isAlert && (
-                        <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
+                      {/* YoY trend */}
+                      {hasTrend ? (
+                        <div className="flex items-center gap-1 mt-1">
+                          {isPositiveTrend ? (
+                            <TrendingUp className="h-3 w-3 text-emerald-500" />
+                          ) : delta < 0 ? (
+                            <TrendingDown className="h-3 w-3 text-red-500" />
+                          ) : null}
+                          <span className={`text-[10px] font-mono ${isPositiveTrend ? "text-emerald-400" : delta < 0 ? "text-red-400" : "text-[#52526b]"}`}>
+                            {delta > 0 ? "+" : ""}{formatKpiValue(delta, kpi.unit)}
+                          </span>
+                          <span className="text-[10px] text-[#52526b]">
+                            vs N-1
+                          </span>
+                        </div>
+                      ) : (
+                        <p className="text-[10px] text-[#52526b] mt-1">
+                          Benchmark : {kpi.benchmark}
+                        </p>
                       )}
-                    </div>
-                    <p
-                      className={`text-lg font-bold font-mono ${
-                        kpi.value === null
-                          ? "text-zinc-300"
-                          : kpi.isAlert
-                          ? "text-amber-600"
-                          : kpi.value < 0
-                          ? "text-red-600"
-                          : "text-zinc-900"
-                      }`}
-                    >
-                      {formatKpiValue(kpi.value, kpi.unit)}
-                    </p>
-                    <p className="text-[10px] text-zinc-400 mt-1">
-                      Benchmark : {kpi.benchmark}
-                    </p>
-                  </CardContent>
-                </Card>
-              ))}
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           </div>
         );

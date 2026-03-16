@@ -78,8 +78,8 @@ export default function ProfilePage() {
   return (
     <div className="space-y-6 max-w-2xl">
       <div>
-        <h1 className="text-2xl font-semibold text-zinc-900">Profil</h1>
-        <p className="text-sm text-zinc-500 mt-1">
+        <h1 className="text-2xl font-semibold text-white">Profil</h1>
+        <p className="text-sm text-[#8b8b9e] mt-1">
           Gérez vos informations personnelles
         </p>
       </div>
@@ -104,7 +104,7 @@ export default function ProfilePage() {
             )}
             <div className="space-y-2">
               <Label>Email</Label>
-              <Input value={profile?.email || ""} disabled className="bg-zinc-50" />
+              <Input value={profile?.email || ""} disabled className="bg-white/[0.03]" />
             </div>
             <div className="space-y-2">
               <Label htmlFor="fullName">Nom complet</Label>
@@ -141,14 +141,14 @@ export default function ProfilePage() {
           {nda ? (
             <>
               <div className="flex items-center gap-2">
-                <CheckCircle className="h-4 w-4 text-green-600" />
-                <span className="text-sm text-zinc-700">NDA signé</span>
+                <CheckCircle className="h-4 w-4 text-emerald-400" />
+                <span className="text-sm text-[#c0c0d0]">NDA signé</span>
                 <Badge variant="secondary">Version {nda.document_version}</Badge>
               </div>
               <Separator />
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <p className="text-zinc-500">Date de signature</p>
+                  <p className="text-[#8b8b9e]">Date de signature</p>
                   <p className="font-medium">
                     {new Date(nda.signed_at).toLocaleDateString("fr-FR", {
                       day: "numeric",
@@ -158,13 +158,13 @@ export default function ProfilePage() {
                   </p>
                 </div>
                 <div>
-                  <p className="text-zinc-500">Nom signé</p>
+                  <p className="text-[#8b8b9e]">Nom signé</p>
                   <p className="font-medium">{nda.full_name_typed}</p>
                 </div>
               </div>
             </>
           ) : (
-            <p className="text-sm text-zinc-500">Aucun NDA signé.</p>
+            <p className="text-sm text-[#8b8b9e]">Aucun NDA signé.</p>
           )}
         </CardContent>
       </Card>

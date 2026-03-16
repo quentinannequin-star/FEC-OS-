@@ -40,19 +40,19 @@ export function Sidebar({ modules, userFullName }: SidebarProps) {
   }
 
   return (
-    <aside className="hidden md:flex w-[260px] flex-col bg-zinc-950 text-zinc-400 h-screen sticky top-0">
+    <aside className="hidden md:flex w-[260px] flex-col bg-[#0d0d14] text-[#8b8b9e] h-screen sticky top-0">
       <div className="p-6">
         <h1 className="text-lg font-semibold text-white tracking-tight">
           M&A OS
         </h1>
-        <p className="text-xs text-zinc-500 mt-0.5">Deal Execution Platform</p>
+        <p className="text-xs text-[#52526b] mt-0.5">Deal Execution Platform</p>
       </div>
 
-      <Separator className="bg-zinc-800" />
+      <Separator className="bg-white/[0.06]" />
 
       <nav className="flex-1 px-3 py-4 space-y-6 overflow-y-auto">
         <div>
-          <p className="px-3 text-[11px] font-medium uppercase tracking-wider text-zinc-600 mb-2">
+          <p className="px-3 text-[11px] font-medium uppercase tracking-wider text-[#52526b] mb-2">
             Plateforme
           </p>
           <NavLink
@@ -64,7 +64,7 @@ export function Sidebar({ modules, userFullName }: SidebarProps) {
         </div>
 
         <div>
-          <p className="px-3 text-[11px] font-medium uppercase tracking-wider text-zinc-600 mb-2">
+          <p className="px-3 text-[11px] font-medium uppercase tracking-wider text-[#52526b] mb-2">
             Outils
           </p>
           {modules.map((mod) => {
@@ -83,7 +83,7 @@ export function Sidebar({ modules, userFullName }: SidebarProps) {
         </div>
 
         <div>
-          <p className="px-3 text-[11px] font-medium uppercase tracking-wider text-zinc-600 mb-2">
+          <p className="px-3 text-[11px] font-medium uppercase tracking-wider text-[#52526b] mb-2">
             Compte
           </p>
           <NavLink
@@ -95,23 +95,23 @@ export function Sidebar({ modules, userFullName }: SidebarProps) {
         </div>
       </nav>
 
-      <Separator className="bg-zinc-800" />
+      <Separator className="bg-white/[0.06]" />
 
       <div className="p-4">
         <div className="flex items-center justify-between mb-3">
           <div className="min-w-0">
-            <p className="text-sm text-zinc-300 truncate">{userFullName}</p>
+            <p className="text-sm text-[#c0c0d0] truncate">{userFullName}</p>
           </div>
           <Button
             variant="ghost"
             size="sm"
             onClick={handleLogout}
-            className="text-zinc-500 hover:text-white hover:bg-zinc-800 h-8 w-8 p-0"
+            className="text-[#52526b] hover:text-white hover:bg-white/[0.08] h-8 w-8 p-0"
           >
             <LogOut className="h-4 w-4" />
           </Button>
         </div>
-        <p className="text-[10px] text-zinc-700">v0.1.0 — Alvora Partners</p>
+        <p className="text-[10px] text-[#52526b]">v0.1.0 — Alvora Partners</p>
       </div>
     </aside>
   );
@@ -132,7 +132,7 @@ function NavLink({
 }) {
   if (disabled) {
     return (
-      <span className="flex items-center gap-3 px-3 py-2 rounded-md text-sm text-zinc-600 cursor-not-allowed">
+      <span className="flex items-center gap-3 px-3 py-2 rounded-md text-sm text-[#52526b] cursor-not-allowed">
         <Icon className="h-4 w-4" />
         {label}
       </span>
@@ -145,8 +145,8 @@ function NavLink({
       className={cn(
         "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
         active
-          ? "bg-zinc-800 text-zinc-100"
-          : "hover:bg-zinc-900 hover:text-zinc-100"
+          ? "bg-white/[0.08] text-white"
+          : "hover:bg-white/[0.06] hover:text-white"
       )}
     >
       <Icon className="h-4 w-4" />

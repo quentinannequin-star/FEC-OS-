@@ -38,8 +38,8 @@ export function ModuleCard({ module }: { module: OsModule }) {
       <CardHeader>
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-100">
-              <Icon className="h-5 w-5 text-zinc-700" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/[0.06]">
+              <Icon className="h-5 w-5 text-[#e040fb]" />
             </div>
             <div>
               <CardTitle>{module.name}</CardTitle>
@@ -55,7 +55,7 @@ export function ModuleCard({ module }: { module: OsModule }) {
         {module.status === "active" ? (
           <Link
             href={`/os/${module.slug}`}
-            className="inline-flex w-full items-center justify-center rounded-lg bg-zinc-900 text-white text-sm font-medium h-8 px-2.5 hover:bg-zinc-700 transition-colors"
+            className="inline-flex w-full items-center justify-center rounded-lg bg-[#e040fb] text-white text-sm font-medium h-8 px-2.5 hover:bg-[#c030d9] transition-colors"
           >
             Ouvrir
           </Link>

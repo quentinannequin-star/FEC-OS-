@@ -3,7 +3,7 @@
 // Source: Expert-comptable TS/M&A — version 3.0-TS-Master
 // ============================================================
 
-import type { PnlMappingLine, BfrMappingLine, NetDebtMappingLine, KpiMappingLine } from "./types";
+import type { PnlMappingLine, BfrMappingLine, NetDebtMappingLine, KpiMappingLine, AngloSaxonMappingLine } from "./types";
 
 // --- Metadata ---
 export const MAPPING_VERSION = "3.0-TS-Master";
@@ -1332,6 +1332,132 @@ export const NET_DEBT_MAPPING: NetDebtMappingLine[] = [
     sign_in_net_debt: "formula",
     formula: "DN_200 + DN_070 - DN_400",
     is_manual: false,
+  },
+];
+
+// ============================================================
+// TABLE 3b — P&L Anglo-Saxon M&A (reclassification des PL_xxx)
+// ============================================================
+
+export const ANGLO_SAXON_PNL_MAPPING: AngloSaxonMappingLine[] = [
+  {
+    id: "AS_010", label: "Revenue", label_fr: "Chiffre d'affaires net",
+    type: "source", source_ids: ["PL_030"], source_signs: [+1],
+    formula: null, is_key_subtotal: true,
+  },
+  {
+    id: "AS_020", label: "Cost of Goods Sold (COGS)", label_fr: "Coût des marchandises et matières",
+    type: "source",
+    source_ids: ["PL_080", "PL_082", "PL_090", "PL_092", "PL_094"],
+    source_signs: [-1, -1, -1, -1, -1],
+    formula: null, is_key_subtotal: false,
+  },
+  {
+    id: "AS_030", label: "Gross Margin", label_fr: "Marge brute",
+    type: "subtotal", source_ids: [], source_signs: [],
+    formula: "AS_010 + AS_020", is_key_subtotal: true,
+  },
+  {
+    id: "AS_040", label: "Personnel costs", label_fr: "Charges de personnel",
+    type: "source",
+    source_ids: ["PL_170", "PL_172", "PL_174", "PL_176", "PL_178"],
+    source_signs: [-1, -1, -1, -1, -1],
+    formula: null, is_key_subtotal: false,
+  },
+  {
+    id: "AS_050", label: "External charges", label_fr: "Charges externes",
+    type: "source",
+    source_ids: [
+      "PL_100", "PL_102", "PL_104", "PL_106", "PL_108", "PL_110", "PL_112",
+      "PL_114", "PL_116", "PL_118", "PL_120", "PL_122", "PL_124", "PL_126", "PL_128",
+      "PL_130",
+    ],
+    source_signs: [
+      -1, -1, -1, -1, -1, -1, -1,
+      -1, -1, -1, -1, -1, -1, -1, -1,
+      +1, // RRR obtenus viennent en déduction
+    ],
+    formula: null, is_key_subtotal: false,
+  },
+  {
+    id: "AS_060", label: "Taxes & duties", label_fr: "Impôts et taxes",
+    type: "source",
+    source_ids: ["PL_160", "PL_162"],
+    source_signs: [-1, -1],
+    formula: null, is_key_subtotal: false,
+  },
+  {
+    id: "AS_065", label: "Other operating income", label_fr: "Autres produits d'exploitation",
+    type: "source",
+    source_ids: ["PL_040", "PL_050", "PL_060"],
+    source_signs: [+1, +1, +1],
+    formula: null, is_key_subtotal: false,
+  },
+  {
+    id: "AS_070", label: "EBITDA", label_fr: "Excédent brut d'exploitation",
+    type: "subtotal", source_ids: [], source_signs: [],
+    formula: "AS_030 + AS_040 + AS_050 + AS_060 + AS_065",
+    is_key_subtotal: true,
+  },
+  {
+    id: "AS_080", label: "Depreciation & Amortisation", label_fr: "Dotations & reprises amortissements",
+    type: "source",
+    source_ids: ["PL_190", "PL_200"],
+    source_signs: [-1, +1],
+    formula: null, is_key_subtotal: false,
+  },
+  {
+    id: "AS_090", label: "Provisions & other operating", label_fr: "Provisions et autres charges/produits",
+    type: "source",
+    source_ids: ["PL_210", "PL_220", "PL_222", "PL_230", "PL_232"],
+    source_signs: [+1, +1, +1, -1, -1],
+    formula: null, is_key_subtotal: false,
+  },
+  {
+    id: "AS_100", label: "EBIT", label_fr: "Résultat d'exploitation",
+    type: "subtotal", source_ids: [], source_signs: [],
+    formula: "AS_070 + AS_080 + AS_090",
+    is_key_subtotal: true,
+  },
+  {
+    id: "AS_110", label: "Financial result", label_fr: "Résultat financier",
+    type: "source",
+    source_ids: ["PL_250", "PL_254", "PL_252", "PL_260"],
+    source_signs: [+1, +1, -1, -1],
+    formula: null, is_key_subtotal: false,
+  },
+  {
+    id: "AS_120", label: "EBT (Earnings Before Tax)", label_fr: "Résultat avant impôts",
+    type: "subtotal", source_ids: [], source_signs: [],
+    formula: "AS_100 + AS_110",
+    is_key_subtotal: true,
+  },
+  {
+    id: "AS_130", label: "Exceptional items (net)", label_fr: "Résultat exceptionnel",
+    type: "source",
+    source_ids: ["PL_290", "PL_294", "PL_292", "PL_300"],
+    source_signs: [+1, +1, -1, -1],
+    formula: null, is_key_subtotal: false,
+  },
+  {
+    id: "AS_140", label: "Corporate tax", label_fr: "Impôt sur les sociétés",
+    type: "source",
+    source_ids: ["PL_330", "PL_332"],
+    source_signs: [-1, +1],
+    formula: null, is_key_subtotal: false,
+  },
+  {
+    id: "AS_150", label: "Employee profit sharing", label_fr: "Participation des salariés",
+    type: "source",
+    source_ids: ["PL_320"],
+    source_signs: [-1],
+    formula: null, is_key_subtotal: false,
+  },
+  {
+    id: "AS_160", label: "Net Income", label_fr: "Résultat net",
+    type: "subtotal", source_ids: [], source_signs: [],
+    formula: "AS_120 + AS_130 + AS_140 + AS_150",
+    is_key_subtotal: true,
   },
 ];
 

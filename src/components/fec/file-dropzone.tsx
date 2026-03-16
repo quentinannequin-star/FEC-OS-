@@ -86,25 +86,25 @@ export function FileDropzone({
   // File loaded state
   if (fileName && !parseError) {
     return (
-      <div className="relative border border-zinc-200 rounded-lg p-3 bg-zinc-50/50">
+      <div className="relative border border-emerald-500/20 rounded-lg p-3 bg-emerald-500/[0.06]">
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50">
-            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/10">
+            <CheckCircle2 className="h-4 w-4 text-emerald-400" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-zinc-900 truncate">
+            <p className="text-sm font-medium text-white truncate">
               {fileName}
             </p>
-            <p className="text-xs text-zinc-500">
+            <p className="text-xs text-[#8b8b9e]">
               {fileSize ? formatFileSize(fileSize) : ""} — {entryCount.toLocaleString("fr-FR")} écritures
             </p>
           </div>
           {onRemoveFile && (
             <button
               onClick={onRemoveFile}
-              className="p-1 rounded hover:bg-zinc-200 transition-colors"
+              className="p-1 rounded hover:bg-white/[0.06] transition-colors"
             >
-              <X className="h-4 w-4 text-zinc-400" />
+              <X className="h-4 w-4 text-[#52526b]" />
             </button>
           )}
         </div>
@@ -115,19 +115,19 @@ export function FileDropzone({
   // Error state
   if (parseError) {
     return (
-      <div className="relative border border-red-200 rounded-lg p-3 bg-red-50/50">
+      <div className="relative border border-red-500/20 rounded-lg p-3 bg-red-500/[0.06]">
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-50">
-            <AlertCircle className="h-4 w-4 text-red-600" />
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-500/10">
+            <AlertCircle className="h-4 w-4 text-red-400" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-red-900">Erreur de parsing</p>
-            <p className="text-xs text-red-600 truncate">{parseError}</p>
+            <p className="text-sm font-medium text-red-300">Erreur de parsing</p>
+            <p className="text-xs text-red-400 truncate">{parseError}</p>
           </div>
           {onRemoveFile && (
             <button
               onClick={onRemoveFile}
-              className="p-1 rounded hover:bg-red-100 transition-colors"
+              className="p-1 rounded hover:bg-red-500/10 transition-colors"
             >
               <X className="h-4 w-4 text-red-400" />
             </button>
@@ -149,8 +149,8 @@ export function FileDropzone({
         transition-all duration-200
         ${
           isDragging
-            ? "border-zinc-400 bg-zinc-50"
-            : "border-zinc-200 hover:border-zinc-300 bg-white"
+            ? "border-[#e040fb] bg-[#1a1a2e]"
+            : "border-white/[0.1] hover:border-white/[0.2] bg-[#12121a]"
         }
         ${isParsing ? "pointer-events-none opacity-60" : ""}
       `}
@@ -164,21 +164,21 @@ export function FileDropzone({
       />
       {isParsing ? (
         <div className="flex flex-col items-center gap-2">
-          <div className="h-8 w-8 border-2 border-zinc-300 border-t-zinc-600 rounded-full animate-spin" />
-          <p className="text-sm text-zinc-500">Lecture du fichier...</p>
+          <div className="h-8 w-8 border-2 border-white/20 border-t-[#e040fb] rounded-full animate-spin" />
+          <p className="text-sm text-[#8b8b9e]">Lecture du fichier...</p>
         </div>
       ) : (
         <div className="flex flex-col items-center gap-2">
           {isDragging ? (
-            <Upload className="h-8 w-8 text-zinc-400" />
+            <Upload className="h-8 w-8 text-[#e040fb]" />
           ) : (
-            <FileSpreadsheet className="h-8 w-8 text-zinc-300" />
+            <FileSpreadsheet className="h-8 w-8 text-[#52526b]" />
           )}
           <div>
-            <p className="text-sm font-medium text-zinc-600">
+            <p className="text-sm font-medium text-[#c0c0d0]">
               {isDragging ? "Déposez le fichier" : "Glissez le FEC ici"}
             </p>
-            <p className="text-xs text-zinc-400 mt-0.5">
+            <p className="text-xs text-[#52526b] mt-0.5">
               .txt ou .csv — norme DGFiP
             </p>
           </div>

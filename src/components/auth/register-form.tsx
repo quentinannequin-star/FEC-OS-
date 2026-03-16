@@ -130,9 +130,9 @@ export function RegisterForm() {
             Créer mon compte
           </Button>
         </form>
-        <p className="mt-4 text-center text-sm text-zinc-500">
+        <p className="mt-4 text-center text-sm text-[#8b8b9e]">
           Déjà inscrit ?{" "}
-          <Link href="/login" className="text-zinc-900 underline">
+          <Link href="/login" className="text-[#e040fb] hover:text-[#c030d9] underline">
             Se connecter
           </Link>
         </p>
