@@ -75,43 +75,59 @@ export function PnlBridgeChart({ yearResults }: PnlBridgeChartProps) {
     );
   };
 
-  // Custom label above bars
+  // Only show labels for bars that are visually significant (> 5% of max value)
+  // or for subtotals (always shown)
+  const maxAbsValue = Math.max(...data.map((d) => Math.abs(d.rawValue)));
+  const labelThreshold = maxAbsValue * 0.05;
+
+  // Label for positive bars — only renders if this point IS positive (rawValue >= 0)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const renderBarLabel = (props: any) => {
-    const { x = 0, y = 0, width = 0, index = 0 } = props as {
-      x: number;
-      y: number;
-      width: number;
-      index: number;
-    };
+  const renderPositiveLabel = (props: any) => {
+    const { x = 0, y = 0, width = 0, index = 0 } = props;
     const point = data[index];
-    if (!point) return null;
+    if (!point || point.rawValue < 0) return null;
 
     const valueK = Math.round(point.rawValue / 1000);
     if (valueK === 0) return null;
-
-    // For the label position: y is the top of the visible bar
-    // For negative bars stacked on transparent, y points to the top of negative
-    // which is the same as top of transparent. We need bottom of negative bar instead.
-    const labelY = point.rawValue >= 0 ? y - 6 : y - 6;
+    if (!point.isSubtotal && Math.abs(point.rawValue) < labelThreshold) return null;
 
     return (
       <text
         x={x + width / 2}
-        y={labelY}
+        y={y - 6}
         textAnchor="middle"
-        fill={
-          point.isSubtotal
-            ? "#c0c0d0"
-            : point.rawValue >= 0
-              ? COLOR_POSITIVE
-              : COLOR_NEGATIVE
-        }
+        fill={point.isSubtotal ? "#c0c0d0" : COLOR_POSITIVE}
         fontSize={10}
         fontFamily="monospace"
         fontWeight={point.isSubtotal ? 600 : 400}
       >
-        {valueK > 0 ? valueK : valueK} k€
+        {valueK} k€
+      </text>
+    );
+  };
+
+  // Label for negative bars — only renders if this point IS negative (rawValue < 0)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const renderNegativeLabel = (props: any) => {
+    const { x = 0, y = 0, width = 0, index = 0 } = props;
+    const point = data[index];
+    if (!point || point.rawValue >= 0) return null;
+
+    const valueK = Math.round(point.rawValue / 1000);
+    if (valueK === 0) return null;
+    if (!point.isSubtotal && Math.abs(point.rawValue) < labelThreshold) return null;
+
+    return (
+      <text
+        x={x + width / 2}
+        y={y - 6}
+        textAnchor="middle"
+        fill={COLOR_NEGATIVE}
+        fontSize={10}
+        fontFamily="monospace"
+        fontWeight={400}
+      >
+        {valueK} k€
       </text>
     );
   };
@@ -189,13 +205,13 @@ export function PnlBridgeChart({ yearResults }: PnlBridgeChartProps) {
                 isAnimationActive={false}
               />
 
-              {/* Positive / subtotal bars */}
+              {/* Positive / subtotal bars — with labels */}
               <Bar
                 dataKey="positive"
                 stackId="waterfall"
                 radius={[3, 3, 0, 0]}
                 isAnimationActive={false}
-                label={renderBarLabel}
+                label={renderPositiveLabel}
               >
                 {shortData.map((entry, index) => (
                   <Cell
@@ -205,12 +221,13 @@ export function PnlBridgeChart({ yearResults }: PnlBridgeChartProps) {
                 ))}
               </Bar>
 
-              {/* Negative variation bars */}
+              {/* Negative variation bars — with labels */}
               <Bar
                 dataKey="negative"
                 stackId="waterfall"
                 radius={[3, 3, 0, 0]}
                 isAnimationActive={false}
+                label={renderNegativeLabel}
               >
                 {shortData.map((entry, index) => (
                   <Cell

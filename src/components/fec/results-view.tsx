@@ -94,10 +94,10 @@ export function ResultsView({ results, onBack }: ResultsViewProps) {
         )}
       </div>
 
-      {/* Main grid: P&L left, BFR + KPIs right */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-        {/* P&L — 3/5 width */}
-        <div className="lg:col-span-3">
+      {/* Row 1: P&L table left, Bridge waterfall right */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* P&L Tables */}
+        <div>
           <Tabs defaultValue="ma">
             <TabsList>
               <TabsTrigger value="ma">P&L M&A</TabsTrigger>
@@ -112,15 +112,21 @@ export function ResultsView({ results, onBack }: ResultsViewProps) {
           </Tabs>
         </div>
 
-        {/* BFR + KPIs — 2/5 width */}
-        <div className="lg:col-span-2 space-y-4">
-          <BfrChart yearResults={current.yearResults} />
-          <KpiCards yearResults={current.yearResults} />
+        {/* P&L Bridge Waterfall */}
+        <div>
+          <PnlBridgeChart yearResults={current.yearResults} />
         </div>
       </div>
 
-      {/* P&L Bridge Waterfall — full width */}
-      <PnlBridgeChart yearResults={current.yearResults} />
+      {/* Row 2: BFR chart + KPIs — full width */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-1">
+          <BfrChart yearResults={current.yearResults} />
+        </div>
+        <div className="lg:col-span-2">
+          <KpiCards yearResults={current.yearResults} />
+        </div>
+      </div>
     </div>
   );
 }
