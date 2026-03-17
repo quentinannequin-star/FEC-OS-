@@ -298,22 +298,22 @@ function EntrySubTable({ entries }: { entries: EntryDetail[] }) {
             key={`${entry.ecritureNum}-${idx}`}
             className="border-b border-zinc-100/60"
           >
-            <td className="py-1 px-3 pl-10 font-mono text-zinc-500 whitespace-nowrap">
+            <td className="py-1 px-3 pl-10 font-mono text-zinc-900 whitespace-nowrap">
               {formatDate(entry.ecritureDate)}
             </td>
-            <td className="py-1 px-3 text-zinc-500">
+            <td className="py-1 px-3 text-zinc-900">
               {entry.journalCode}
             </td>
-            <td className="py-1 px-3 text-zinc-400 max-w-[80px] truncate">
+            <td className="py-1 px-3 text-zinc-700 max-w-[80px] truncate">
               {entry.pieceRef}
             </td>
-            <td className="py-1 px-3 text-zinc-500 max-w-[220px] truncate">
+            <td className="py-1 px-3 text-zinc-900 max-w-[220px] truncate">
               {entry.ecritureLib || entry.compteLib}
             </td>
-            <td className="py-1 px-3 text-right font-mono text-zinc-500 whitespace-nowrap">
+            <td className="py-1 px-3 text-right font-mono text-zinc-900 whitespace-nowrap">
               {entry.debit > 0 ? formatAmountExact(entry.debit) : "—"}
             </td>
-            <td className="py-1 px-3 text-right font-mono text-zinc-500 whitespace-nowrap">
+            <td className="py-1 px-3 text-right font-mono text-zinc-900 whitespace-nowrap">
               {entry.credit > 0 ? formatAmountExact(entry.credit) : "—"}
             </td>
           </tr>
