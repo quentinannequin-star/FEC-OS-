@@ -196,11 +196,26 @@ export function computePnl(entries: FecEntry[]): PnlLineResult[] {
     agg.rawEntries.push(entry);
 
     // Aggregate by account number for detail drill-down
+    const entryDetail: EntryDetail = {
+      journalCode: entry.JournalCode,
+      journalLib: entry.JournalLib,
+      ecritureNum: entry.EcritureNum,
+      ecritureDate: entry.EcritureDate,
+      pieceRef: entry.PieceRef,
+      ecritureLib: entry.EcritureLib,
+      compteNum: entry.CompteNum,
+      compteLib: entry.CompteLib,
+      debit: entry.Debit,
+      credit: entry.Credit,
+    };
+
     const existing = agg.accounts.get(entry.CompteNum);
     if (existing) {
       existing.debit += entry.Debit;
       existing.credit += entry.Credit;
       existing.entryCount += 1;
+      existing.entries = existing.entries ?? [];
+      existing.entries.push(entryDetail);
     } else {
       agg.accounts.set(entry.CompteNum, {
         compteNum: entry.CompteNum,
@@ -209,6 +224,7 @@ export function computePnl(entries: FecEntry[]): PnlLineResult[] {
         credit: entry.Credit,
         solde: 0, // Will be computed after
         entryCount: 1,
+        entries: [entryDetail],
       });
     }
   }
@@ -322,11 +338,26 @@ export function computeLiasseFiscalePnl(entries: FecEntry[]): LiasseFiscaleLineR
     agg.debitTotal += entry.Debit;
     agg.creditTotal += entry.Credit;
 
+    const entryDetail: EntryDetail = {
+      journalCode: entry.JournalCode,
+      journalLib: entry.JournalLib,
+      ecritureNum: entry.EcritureNum,
+      ecritureDate: entry.EcritureDate,
+      pieceRef: entry.PieceRef,
+      ecritureLib: entry.EcritureLib,
+      compteNum: entry.CompteNum,
+      compteLib: entry.CompteLib,
+      debit: entry.Debit,
+      credit: entry.Credit,
+    };
+
     const existing = agg.accounts.get(entry.CompteNum);
     if (existing) {
       existing.debit += entry.Debit;
       existing.credit += entry.Credit;
       existing.entryCount += 1;
+      existing.entries = existing.entries ?? [];
+      existing.entries.push(entryDetail);
     } else {
       agg.accounts.set(entry.CompteNum, {
         compteNum: entry.CompteNum,
@@ -335,6 +366,7 @@ export function computeLiasseFiscalePnl(entries: FecEntry[]): LiasseFiscaleLineR
         credit: entry.Credit,
         solde: 0,
         entryCount: 1,
+        entries: [entryDetail],
       });
     }
   }

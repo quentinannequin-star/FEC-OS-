@@ -7,9 +7,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ArrowUpDown } from "lucide-react";
+import { ArrowUpDown, ChevronDown, ChevronRight } from "lucide-react";
 import { formatAmountExact } from "@/lib/fec/format";
-import type { AccountDetail } from "@/lib/fec/types";
+import type { AccountDetail, EntryDetail } from "@/lib/fec/types";
 
 interface DetailModalProps {
   open: boolean;
@@ -23,12 +23,18 @@ interface DetailModalProps {
 type SortKey = "compteNum" | "compteLib" | "debit" | "credit" | "solde";
 type SortDir = "asc" | "desc";
 
+function formatDate(d: Date): string {
+  if (!d || d.getTime() === 0) return "—";
+  return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
 export function DetailModal({ open, onClose, title, details, yearDetails }: DetailModalProps) {
   const [sortKey, setSortKey] = useState<SortKey>("compteNum");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [selectedYearIdx, setSelectedYearIdx] = useState(
     yearDetails ? yearDetails.length - 1 : 0
   );
+  const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set());
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -37,6 +43,18 @@ export function DetailModal({ open, onClose, title, details, yearDetails }: Deta
       setSortKey(key);
       setSortDir("asc");
     }
+  };
+
+  const toggleAccount = (compteNum: string) => {
+    setExpandedAccounts((prev) => {
+      const next = new Set(prev);
+      if (next.has(compteNum)) {
+        next.delete(compteNum);
+      } else {
+        next.add(compteNum);
+      }
+      return next;
+    });
   };
 
   // Use year-specific details if available, otherwise fallback to single details
@@ -134,35 +152,20 @@ export function DetailModal({ open, onClose, title, details, yearDetails }: Deta
                 </tr>
               </thead>
               <tbody>
-                {sorted.map((detail) => (
-                  <tr
-                    key={detail.compteNum}
-                    className="border-b border-zinc-50 hover:bg-zinc-50"
-                  >
-                    <td className="py-1.5 px-3 font-mono text-xs text-zinc-700 whitespace-nowrap">
-                      {detail.compteNum}
-                    </td>
-                    <td className="py-1.5 px-3 text-zinc-600 max-w-[280px] truncate">
-                      {detail.compteLib}
-                    </td>
-                    <td className="py-1.5 px-3 text-right font-mono text-xs whitespace-nowrap">
-                      {detail.debit > 0 ? formatAmountExact(detail.debit) : "—"}
-                    </td>
-                    <td className="py-1.5 px-3 text-right font-mono text-xs whitespace-nowrap">
-                      {detail.credit > 0 ? formatAmountExact(detail.credit) : "—"}
-                    </td>
-                    <td
-                      className={`py-1.5 px-3 text-right font-mono text-xs font-medium whitespace-nowrap ${
-                        detail.solde < 0 ? "text-red-600" : "text-zinc-900"
-                      }`}
-                    >
-                      {formatAmountExact(detail.solde)}
-                    </td>
-                    <td className="py-1.5 px-3 text-right text-xs text-zinc-400 whitespace-nowrap">
-                      {detail.entryCount}
-                    </td>
-                  </tr>
-                ))}
+                {sorted.map((detail) => {
+                  const hasEntries = detail.entries && detail.entries.length > 0;
+                  const isExpanded = expandedAccounts.has(detail.compteNum);
+
+                  return (
+                    <AccountRow
+                      key={detail.compteNum}
+                      detail={detail}
+                      hasEntries={!!hasEntries}
+                      isExpanded={isExpanded}
+                      onToggle={() => toggleAccount(detail.compteNum)}
+                    />
+                  );
+                })}
               </tbody>
               {/* Totals */}
               <tfoot>
@@ -199,6 +202,128 @@ export function DetailModal({ open, onClose, title, details, yearDetails }: Deta
     </Dialog>
   );
 }
+
+// ── Account row with expandable entries ──
+
+function AccountRow({
+  detail,
+  hasEntries,
+  isExpanded,
+  onToggle,
+}: {
+  detail: AccountDetail;
+  hasEntries: boolean;
+  isExpanded: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <>
+      <tr
+        onClick={hasEntries ? onToggle : undefined}
+        className={`
+          border-b border-zinc-50 transition-colors
+          ${hasEntries ? "cursor-pointer hover:bg-zinc-50" : "hover:bg-zinc-50"}
+          ${isExpanded ? "bg-zinc-50" : ""}
+        `}
+      >
+        <td className="py-1.5 px-3 font-mono text-xs text-zinc-700 whitespace-nowrap">
+          <span className="inline-flex items-center gap-1">
+            {hasEntries ? (
+              isExpanded ? (
+                <ChevronDown className="h-3 w-3 text-zinc-400 shrink-0" />
+              ) : (
+                <ChevronRight className="h-3 w-3 text-zinc-400 shrink-0" />
+              )
+            ) : (
+              <span className="w-3" />
+            )}
+            {detail.compteNum}
+          </span>
+        </td>
+        <td className="py-1.5 px-3 text-zinc-600 max-w-[280px] truncate">
+          {detail.compteLib}
+        </td>
+        <td className="py-1.5 px-3 text-right font-mono text-xs whitespace-nowrap">
+          {detail.debit > 0 ? formatAmountExact(detail.debit) : "—"}
+        </td>
+        <td className="py-1.5 px-3 text-right font-mono text-xs whitespace-nowrap">
+          {detail.credit > 0 ? formatAmountExact(detail.credit) : "—"}
+        </td>
+        <td
+          className={`py-1.5 px-3 text-right font-mono text-xs font-medium whitespace-nowrap ${
+            detail.solde < 0 ? "text-red-600" : "text-zinc-900"
+          }`}
+        >
+          {formatAmountExact(detail.solde)}
+        </td>
+        <td className="py-1.5 px-3 text-right text-xs text-zinc-400 whitespace-nowrap">
+          {detail.entryCount}
+        </td>
+      </tr>
+
+      {/* Expanded entries */}
+      {isExpanded && hasEntries && (
+        <tr className="bg-zinc-50/70">
+          <td colSpan={6} className="px-0 py-0">
+            <EntrySubTable entries={detail.entries!} />
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
+
+// ── Entries sub-table ──
+
+function EntrySubTable({ entries }: { entries: EntryDetail[] }) {
+  const sorted = [...entries].sort(
+    (a, b) => a.ecritureDate.getTime() - b.ecritureDate.getTime()
+  );
+
+  return (
+    <table className="w-full text-[11px]">
+      <thead>
+        <tr className="text-[10px] text-zinc-400 uppercase border-b border-zinc-200/60">
+          <th className="py-1 px-3 pl-10 text-left font-medium">Date</th>
+          <th className="py-1 px-3 text-left font-medium">Journal</th>
+          <th className="py-1 px-3 text-left font-medium">Pièce</th>
+          <th className="py-1 px-3 text-left font-medium">Libellé</th>
+          <th className="py-1 px-3 text-right font-medium">Débit</th>
+          <th className="py-1 px-3 text-right font-medium">Crédit</th>
+        </tr>
+      </thead>
+      <tbody>
+        {sorted.map((entry, idx) => (
+          <tr
+            key={`${entry.ecritureNum}-${idx}`}
+            className="border-b border-zinc-100/60"
+          >
+            <td className="py-1 px-3 pl-10 font-mono text-zinc-500 whitespace-nowrap">
+              {formatDate(entry.ecritureDate)}
+            </td>
+            <td className="py-1 px-3 text-zinc-500">
+              {entry.journalCode}
+            </td>
+            <td className="py-1 px-3 text-zinc-400 max-w-[80px] truncate">
+              {entry.pieceRef}
+            </td>
+            <td className="py-1 px-3 text-zinc-500 max-w-[220px] truncate">
+              {entry.ecritureLib || entry.compteLib}
+            </td>
+            <td className="py-1 px-3 text-right font-mono text-zinc-500 whitespace-nowrap">
+              {entry.debit > 0 ? formatAmountExact(entry.debit) : "—"}
+            </td>
+            <td className="py-1 px-3 text-right font-mono text-zinc-500 whitespace-nowrap">
+              {entry.credit > 0 ? formatAmountExact(entry.credit) : "—"}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+// ── Sortable table header ──
 
 function ThHeader({
   label,

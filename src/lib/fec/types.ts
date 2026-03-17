@@ -148,6 +148,7 @@ export interface AccountDetail {
   credit: number;
   solde: number;
   entryCount: number;
+  entries?: EntryDetail[];
 }
 
 export interface PnlLineResult {
