@@ -15,6 +15,8 @@ interface BfrDetailModalProps {
   open: boolean;
   onClose: () => void;
   monthData: BfrMonthResult;
+  /** Multi-year support: array of { label, monthData } per year */
+  yearMonthData?: { label: string; monthData: BfrMonthResult | null }[];
 }
 
 /** Grouped BFR categories for display */
@@ -50,8 +52,19 @@ const CATEGORIES: {
   },
 ];
 
-export function BfrDetailModal({ open, onClose, monthData }: BfrDetailModalProps) {
+export function BfrDetailModal({ open, onClose, monthData, yearMonthData }: BfrDetailModalProps) {
   const [expandedLines, setExpandedLines] = useState<Set<string>>(new Set());
+  const [selectedYearIdx, setSelectedYearIdx] = useState(
+    yearMonthData ? yearMonthData.length - 1 : 0
+  );
+
+  // Use year-specific data if available, otherwise fallback to single monthData
+  const activeMonthData =
+    yearMonthData && yearMonthData.length > 0 && yearMonthData[selectedYearIdx]?.monthData
+      ? yearMonthData[selectedYearIdx].monthData!
+      : monthData;
+
+  const showYearSelector = yearMonthData && yearMonthData.length > 1;
 
   const toggleLine = (id: string) => {
     setExpandedLines((prev) => {
@@ -65,32 +78,53 @@ export function BfrDetailModal({ open, onClose, monthData }: BfrDetailModalProps
     });
   };
 
-  const bfrLine = monthData.lines.find((l) => l.id === "BFR_220");
+  const bfrLine = activeMonthData.lines.find((l) => l.id === "BFR_220");
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
       <DialogContent className="sm:max-w-3xl max-h-[85vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="text-base">
-            BFR détail — {monthData.month}
+            BFR détail — {activeMonthData.month}
           </DialogTitle>
+          {/* Year selector */}
+          {showYearSelector && (
+            <div className="flex gap-1 mt-2">
+              {yearMonthData!.map((ym, idx) => (
+                <button
+                  key={ym.label}
+                  onClick={() => setSelectedYearIdx(idx)}
+                  disabled={!ym.monthData}
+                  className={`h-7 px-2.5 text-xs rounded-md font-medium transition-colors ${
+                    selectedYearIdx === idx
+                      ? "bg-white/[0.15] text-white"
+                      : !ym.monthData
+                      ? "text-[#52526b] cursor-not-allowed"
+                      : "text-[#8b8b9e] hover:text-white hover:bg-white/[0.08]"
+                  }`}
+                >
+                  {ym.label}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="flex items-center gap-4 text-xs text-[#8b8b9e] mt-1">
             <span>
               Actif circulant :{" "}
               <span className="font-mono font-medium text-[#c0c0d0]">
-                {formatAmountK(monthData.operatingAssets)}
+                {formatAmountK(activeMonthData.operatingAssets)}
               </span>
             </span>
             <span>
               Passif circulant :{" "}
               <span className="font-mono font-medium text-[#c0c0d0]">
-                {formatAmountK(monthData.operatingLiabilities)}
+                {formatAmountK(activeMonthData.operatingLiabilities)}
               </span>
             </span>
             <span>
               BFR opérationnel :{" "}
-              <span className={`font-mono font-bold ${monthData.operatingBfr < 0 ? "text-red-400" : "text-white"}`}>
-                {formatAmountK(monthData.operatingBfr)}
+              <span className={`font-mono font-bold ${activeMonthData.operatingBfr < 0 ? "text-red-400" : "text-white"}`}>
+                {formatAmountK(activeMonthData.operatingBfr)}
               </span>
             </span>
           </div>
@@ -98,14 +132,14 @@ export function BfrDetailModal({ open, onClose, monthData }: BfrDetailModalProps
 
         <div className="overflow-auto flex-1 -mx-4 px-4">
           {CATEGORIES.map((cat) => {
-            const categoryLines = monthData.lines.filter(cat.filter);
+            const categoryLines = activeMonthData.lines.filter(cat.filter);
             // Skip empty categories
             if (categoryLines.length === 0 || categoryLines.every((l) => l.amount === 0 && l.details.length === 0)) {
               return null;
             }
 
             const subtotalLine = cat.subtotalId
-              ? monthData.lines.find((l) => l.id === cat.subtotalId)
+              ? activeMonthData.lines.find((l) => l.id === cat.subtotalId)
               : null;
 
             return (

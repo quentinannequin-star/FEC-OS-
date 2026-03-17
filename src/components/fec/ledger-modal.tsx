@@ -17,6 +17,8 @@ interface LedgerModalProps {
   onClose: () => void;
   title: string;
   entries: EntryDetail[];
+  /** Multi-year support: array of { label, entries } per year */
+  yearEntries?: { label: string; entries: EntryDetail[] }[];
 }
 
 type SortKey = "ecritureDate" | "journalCode" | "pieceRef" | "compteNum" | "ecritureLib" | "debit" | "credit";
@@ -27,10 +29,21 @@ function formatDate(d: Date): string {
   return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
-export function LedgerModal({ open, onClose, title, entries }: LedgerModalProps) {
+export function LedgerModal({ open, onClose, title, entries, yearEntries }: LedgerModalProps) {
   const [sortKey, setSortKey] = useState<SortKey>("ecritureDate");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [filter, setFilter] = useState("");
+  const [selectedYearIdx, setSelectedYearIdx] = useState(
+    yearEntries ? yearEntries.length - 1 : 0
+  );
+
+  // Use year-specific entries if available, otherwise fallback to single entries
+  const activeEntries =
+    yearEntries && yearEntries.length > 0
+      ? yearEntries[selectedYearIdx]?.entries ?? []
+      : entries;
+
+  const showYearSelector = yearEntries && yearEntries.length > 1;
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -42,9 +55,9 @@ export function LedgerModal({ open, onClose, title, entries }: LedgerModalProps)
   };
 
   const filtered = useMemo(() => {
-    if (!filter) return entries;
+    if (!filter) return activeEntries;
     const lower = filter.toLowerCase();
-    return entries.filter(
+    return activeEntries.filter(
       (e) =>
         e.compteNum.toLowerCase().includes(lower) ||
         e.compteLib.toLowerCase().includes(lower) ||
@@ -52,7 +65,7 @@ export function LedgerModal({ open, onClose, title, entries }: LedgerModalProps)
         e.ecritureLib.toLowerCase().includes(lower) ||
         e.pieceRef.toLowerCase().includes(lower)
     );
-  }, [entries, filter]);
+  }, [activeEntries, filter]);
 
   const sorted = useMemo(() => {
     return [...filtered].sort((a, b) => {
@@ -75,9 +88,27 @@ export function LedgerModal({ open, onClose, title, entries }: LedgerModalProps)
       <DialogContent className="sm:max-w-4xl max-h-[85vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="text-base">{title}</DialogTitle>
+          {/* Year selector */}
+          {showYearSelector && (
+            <div className="flex gap-1 mt-2">
+              {yearEntries!.map((ye, idx) => (
+                <button
+                  key={ye.label}
+                  onClick={() => setSelectedYearIdx(idx)}
+                  className={`h-7 px-2.5 text-xs rounded-md font-medium transition-colors ${
+                    selectedYearIdx === idx
+                      ? "bg-white/[0.15] text-white"
+                      : "text-[#8b8b9e] hover:text-white hover:bg-white/[0.08]"
+                  }`}
+                >
+                  {ye.label}
+                </button>
+              ))}
+            </div>
+          )}
           <p className="text-xs text-[#8b8b9e]">
             {filtered.length} écriture{filtered.length > 1 ? "s" : ""}
-            {filter && ` (filtrées sur ${entries.length})`}
+            {filter && ` (filtrées sur ${activeEntries.length})`}
           </p>
         </DialogHeader>
 

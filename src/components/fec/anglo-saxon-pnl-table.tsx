@@ -161,6 +161,10 @@ export function AngloSaxonPnlTable({ yearResults }: AngloSaxonPnlTableProps) {
           onClose={() => setModalLine(null)}
           title={`${modalLine.label} — ${modalLine.label_fr}`}
           entries={modalLine.entries}
+          yearEntries={yearResults.map((yr) => {
+            const line = yr.angloSaxonPnl.find((l) => l.id === modalLine.id);
+            return { label: yr.fiscalYear, entries: line?.entries ?? [] };
+          })}
         />
       )}
     </>

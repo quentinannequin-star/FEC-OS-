@@ -76,7 +76,15 @@ export function BfrChart({ yearResults }: BfrChartProps) {
     yearLabels.some((label) => point[label] !== null)
   );
 
-  // For BFR detail modal, use most recent year
+  // For BFR detail modal, build multi-year data for the selected month
+  const selectedYearMonthData = selectedMonth
+    ? yearResults.map((yr) => ({
+        label: yr.fiscalYear,
+        monthData: yr.bfrMonthly.find((m) => m.month.endsWith(`-${selectedMonth}`)) ?? null,
+      }))
+    : null;
+
+  // Fallback: pick the latest year's data as the primary monthData
   const latestResult = yearResults[yearResults.length - 1];
   const selectedMonthData = selectedMonth
     ? latestResult.bfrMonthly.find((m) => m.month.endsWith(`-${selectedMonth}`))
@@ -178,6 +186,7 @@ export function BfrChart({ yearResults }: BfrChartProps) {
           open={!!selectedMonth}
           onClose={() => setSelectedMonth(null)}
           monthData={selectedMonthData}
+          yearMonthData={selectedYearMonthData ?? undefined}
         />
       )}
 
