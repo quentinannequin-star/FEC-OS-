@@ -180,6 +180,10 @@ export function LiasseFiscalePnl({ yearResults }: LiasseFiscalePnlProps) {
           onClose={() => setModalLine(null)}
           title={modalLine.label}
           details={modalLine.details}
+          yearDetails={yearResults.map((yr) => {
+            const line = yr.liasseFiscalePnl.find((l) => l.id === modalLine.id);
+            return { label: yr.fiscalYear, details: line?.details ?? [] };
+          })}
         />
       )}
     </>
