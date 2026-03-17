@@ -24,9 +24,10 @@ const COLOR_SUBTOTAL = "#a78bfa"; // violet
 
 interface PnlBridgeChartProps {
   yearResults: AnalysisResult[];
+  className?: string;
 }
 
-export function PnlBridgeChart({ yearResults }: PnlBridgeChartProps) {
+export function PnlBridgeChart({ yearResults, className }: PnlBridgeChartProps) {
   const [selectedYear, setSelectedYear] = useState(
     yearResults[yearResults.length - 1]?.fiscalYear ?? ""
   );
@@ -139,7 +140,7 @@ export function PnlBridgeChart({ yearResults }: PnlBridgeChartProps) {
   }));
 
   return (
-    <Card>
+    <Card className={`${className ?? ""} flex flex-col`}>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-base font-semibold text-white">
@@ -167,8 +168,8 @@ export function PnlBridgeChart({ yearResults }: PnlBridgeChartProps) {
           Waterfall du compte de résultat anglo-saxon ({selectedYear})
         </p>
       </CardHeader>
-      <CardContent>
-        <div className="h-[420px]">
+      <CardContent className="flex-1 flex flex-col">
+        <div className="flex-1 min-h-[300px]">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
               data={shortData}
