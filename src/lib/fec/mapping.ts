@@ -87,7 +87,7 @@ export const PNL_MAPPING: PnlMappingLine[] = [
     sign: "credit_minus_debit",
     formula: null,
     is_key_subtotal: false,
-    restatement_flag: "none",
+    restatement_flag: "one_off",
   },
   {
     id: "PL_050",
@@ -450,7 +450,7 @@ export const PNL_MAPPING: PnlMappingLine[] = [
     sign: "debit_minus_credit",
     formula: null,
     is_key_subtotal: false,
-    restatement_flag: "none",
+    restatement_flag: "one_off",
   },
   {
     id: "PL_180",
@@ -505,7 +505,7 @@ export const PNL_MAPPING: PnlMappingLine[] = [
     sign: "credit_minus_debit",
     formula: null,
     is_key_subtotal: false,
-    restatement_flag: "none",
+    restatement_flag: "ic_risk",
   },
   {
     id: "PL_222",
@@ -516,7 +516,7 @@ export const PNL_MAPPING: PnlMappingLine[] = [
     sign: "credit_minus_debit",
     formula: null,
     is_key_subtotal: false,
-    restatement_flag: "none",
+    restatement_flag: "ic_risk",
   },
   {
     id: "PL_230",
@@ -538,7 +538,7 @@ export const PNL_MAPPING: PnlMappingLine[] = [
     sign: "debit_minus_credit",
     formula: null,
     is_key_subtotal: false,
-    restatement_flag: "none",
+    restatement_flag: "ic_risk",
   },
   {
     id: "PL_240",

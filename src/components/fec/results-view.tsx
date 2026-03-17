@@ -10,6 +10,7 @@ import { AngloSaxonPnlTable } from "./anglo-saxon-pnl-table";
 import { BfrChart } from "./bfr-chart";
 import { PnlBridgeChart } from "./pnl-bridge-chart";
 import { KpiCards } from "./kpi-cards";
+import { QoEDashboard } from "./qoe-dashboard";
 import type { MultiYearAnalysisResult } from "@/lib/fec/types";
 
 interface ResultsViewProps {
@@ -127,6 +128,9 @@ export function ResultsView({ results, onBack }: ResultsViewProps) {
           <KpiCards yearResults={current.yearResults} />
         </div>
       </div>
+
+      {/* Row 3: Quality of Earnings — full width */}
+      <QoEDashboard yearResults={current.yearResults} />
     </div>
   );
 }

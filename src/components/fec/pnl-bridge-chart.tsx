@@ -76,63 +76,6 @@ export function PnlBridgeChart({ yearResults, className }: PnlBridgeChartProps) 
     );
   };
 
-  // Only show labels for bars that are visually significant (> 5% of max value)
-  // or for subtotals (always shown)
-  const maxAbsValue = Math.max(...data.map((d) => Math.abs(d.rawValue)));
-  const labelThreshold = maxAbsValue * 0.05;
-
-  // Label for positive bars — only renders if this point IS positive (rawValue >= 0)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const renderPositiveLabel = (props: any) => {
-    const { x = 0, y = 0, width = 0, index = 0 } = props;
-    const point = data[index];
-    if (!point || point.rawValue < 0) return null;
-
-    const valueK = Math.round(point.rawValue / 1000);
-    if (valueK === 0) return null;
-    if (!point.isSubtotal && Math.abs(point.rawValue) < labelThreshold) return null;
-
-    return (
-      <text
-        x={x + width / 2}
-        y={y - 6}
-        textAnchor="middle"
-        fill={point.isSubtotal ? "#c0c0d0" : COLOR_POSITIVE}
-        fontSize={10}
-        fontFamily="monospace"
-        fontWeight={point.isSubtotal ? 600 : 400}
-      >
-        {valueK} k€
-      </text>
-    );
-  };
-
-  // Label for negative bars — only renders if this point IS negative (rawValue < 0)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const renderNegativeLabel = (props: any) => {
-    const { x = 0, y = 0, width = 0, index = 0 } = props;
-    const point = data[index];
-    if (!point || point.rawValue >= 0) return null;
-
-    const valueK = Math.round(point.rawValue / 1000);
-    if (valueK === 0) return null;
-    if (!point.isSubtotal && Math.abs(point.rawValue) < labelThreshold) return null;
-
-    return (
-      <text
-        x={x + width / 2}
-        y={y - 6}
-        textAnchor="middle"
-        fill={COLOR_NEGATIVE}
-        fontSize={10}
-        fontFamily="monospace"
-        fontWeight={400}
-      >
-        {valueK} k€
-      </text>
-    );
-  };
-
   // Use short labels for x-axis to avoid overlap
   const shortData = data.map((d) => ({
     ...d,
@@ -206,13 +149,12 @@ export function PnlBridgeChart({ yearResults, className }: PnlBridgeChartProps) 
                 isAnimationActive={false}
               />
 
-              {/* Positive / subtotal bars — with labels */}
+              {/* Positive / subtotal bars */}
               <Bar
                 dataKey="positive"
                 stackId="waterfall"
                 radius={[3, 3, 0, 0]}
                 isAnimationActive={false}
-                label={renderPositiveLabel}
               >
                 {shortData.map((entry, index) => (
                   <Cell
@@ -222,13 +164,12 @@ export function PnlBridgeChart({ yearResults, className }: PnlBridgeChartProps) 
                 ))}
               </Bar>
 
-              {/* Negative variation bars — with labels */}
+              {/* Negative variation bars */}
               <Bar
                 dataKey="negative"
                 stackId="waterfall"
                 radius={[3, 3, 0, 0]}
                 isAnimationActive={false}
-                label={renderNegativeLabel}
               >
                 {shortData.map((entry, index) => (
                   <Cell
