@@ -15,6 +15,8 @@ import type {
   AnalysisResult,
   AngloSaxonLineResult,
   AngloSaxonMappingLine,
+  LiasseFiscaleMappingLine,
+  LiasseFiscaleLineResult,
   Company,
   CompanySector,
   KpiResult,
@@ -25,6 +27,7 @@ import {
   BFR_MAPPING,
   KPI_MAPPING,
   ANGLO_SAXON_PNL_MAPPING,
+  LIASSE_FISCALE_MAPPING,
   PNL_EXCLUDED_JOURNALS,
   CLOSURE_JOURNALS,
   PNL_EXCLUDED_ACCOUNT_PREFIXES,
@@ -287,6 +290,99 @@ export function computePnl(entries: FecEntry[]): PnlLineResult[] {
   });
 
   return results;
+}
+
+// ============================================================
+// LIASSE FISCALE P&L (Cerfa standard)
+// ============================================================
+
+export function computeLiasseFiscalePnl(entries: FecEntry[]): LiasseFiscaleLineResult[] {
+  const mapping = LIASSE_FISCALE_MAPPING;
+  const pnlEntries = filterPnlEntries(entries);
+
+  // Build aggregates for account-type lines
+  const lineAggregates = new Map<
+    string,
+    { debitTotal: number; creditTotal: number; accounts: Map<string, AccountDetail> }
+  >();
+
+  const accountLines = mapping.filter((l) => l.type === "account");
+
+  for (const line of accountLines) {
+    lineAggregates.set(line.id, { debitTotal: 0, creditTotal: 0, accounts: new Map() });
+  }
+
+  for (const entry of pnlEntries) {
+    const matchId = findMappingMatch(entry.CompteNum, accountLines);
+    if (!matchId) continue;
+
+    const agg = lineAggregates.get(matchId);
+    if (!agg) continue;
+
+    agg.debitTotal += entry.Debit;
+    agg.creditTotal += entry.Credit;
+
+    const existing = agg.accounts.get(entry.CompteNum);
+    if (existing) {
+      existing.debit += entry.Debit;
+      existing.credit += entry.Credit;
+      existing.entryCount += 1;
+    } else {
+      agg.accounts.set(entry.CompteNum, {
+        compteNum: entry.CompteNum,
+        compteLib: entry.CompteLib,
+        debit: entry.Debit,
+        credit: entry.Credit,
+        solde: 0,
+        entryCount: 1,
+      });
+    }
+  }
+
+  // Compute amounts for account lines
+  const values = new Map<string, number>();
+
+  for (const line of mapping) {
+    if (line.type !== "account") continue;
+
+    const agg = lineAggregates.get(line.id);
+    if (!agg) { values.set(line.id, 0); continue; }
+
+    const amount = line.sign === "credit_minus_debit"
+      ? agg.creditTotal - agg.debitTotal
+      : agg.debitTotal - agg.creditTotal;
+
+    values.set(line.id, amount);
+
+    for (const detail of agg.accounts.values()) {
+      detail.solde = line.sign === "credit_minus_debit"
+        ? detail.credit - detail.debit
+        : detail.debit - detail.credit;
+    }
+  }
+
+  // Compute subtotals
+  for (const line of mapping) {
+    if (line.type === "subtotal" && line.formula) {
+      values.set(line.id, evaluateFormula(line.formula, values));
+    }
+  }
+
+  // Build results
+  return mapping.map((line) => {
+    const agg = lineAggregates.get(line.id);
+    const details: AccountDetail[] = agg
+      ? Array.from(agg.accounts.values()).sort((a, b) => a.compteNum.localeCompare(b.compteNum))
+      : [];
+
+    return {
+      id: line.id,
+      label: line.label,
+      type: line.type,
+      amount: values.get(line.id) ?? 0,
+      details,
+    };
+  });
 }
 
 // ============================================================
@@ -712,6 +808,9 @@ export function analyzeEntries(
   // Compute Anglo-Saxon P&L (reclassification of SIG)
   const angloSaxonPnl = computeAngloSaxonPnl(pnl, ANGLO_SAXON_PNL_MAPPING);
 
+  // Compute Liasse Fiscale P&L (Cerfa standard)
+  const liasseFiscalePnl = computeLiasseFiscalePnl(entries);
+
   // Compute BFR monthly
   const bfrMonthly = computeMonthlyBfr(entries);
 
@@ -730,6 +829,7 @@ export function analyzeEntries(
     entryCount: entries.length,
     pnl,
     angloSaxonPnl,
+    liasseFiscalePnl,
     bfrMonthly,
     kpis,
     unmappedAccounts,

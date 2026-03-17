@@ -89,6 +89,17 @@ export interface PnlMappingLine {
   restatement_flag: string;
 }
 
+/** Liasse Fiscale mapping line — simpler than PnlMappingLine (no restatement flags) */
+export interface LiasseFiscaleMappingLine {
+  id: string;
+  label: string;
+  type: LineType;
+  pcg_prefix: string[];
+  pcg_exclude: string[];
+  sign: SignConvention;
+  formula: string | null;
+}
+
 export interface BfrMappingLine {
   id: string;
   label: string;
@@ -224,6 +235,15 @@ export interface AngloSaxonLineResult {
   entries: EntryDetail[];
 }
 
+/** Liasse Fiscale P&L line result */
+export interface LiasseFiscaleLineResult {
+  id: string;
+  label: string;
+  type: LineType;
+  amount: number;
+  details: AccountDetail[];
+}
+
 export interface AnalysisResult {
   companyId: string;
   companyName: string;
@@ -233,6 +253,7 @@ export interface AnalysisResult {
   entryCount: number;
   pnl: PnlLineResult[];
   angloSaxonPnl: AngloSaxonLineResult[];
+  liasseFiscalePnl: LiasseFiscaleLineResult[];
   bfrMonthly: BfrMonthResult[];
   kpis: KpiResult[];
   unmappedAccounts: { compteNum: string; compteLib: string; debit: number; credit: number }[];

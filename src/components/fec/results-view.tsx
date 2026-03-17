@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PnlTable } from "./pnl-table";
 import { AngloSaxonPnlTable } from "./anglo-saxon-pnl-table";
+import { LiasseFiscalePnl } from "./liasse-fiscale-pnl";
 import { BfrChart } from "./bfr-chart";
 import { PnlBridgeChart } from "./pnl-bridge-chart";
 import { KpiCards } from "./kpi-cards";
@@ -103,12 +104,16 @@ export function ResultsView({ results, onBack }: ResultsViewProps) {
             <TabsList>
               <TabsTrigger value="ma">P&L M&A</TabsTrigger>
               <TabsTrigger value="sig">Détail (SIG)</TabsTrigger>
+              <TabsTrigger value="liasse">Liasse Fiscale</TabsTrigger>
             </TabsList>
             <TabsContent value="ma" className="mt-3">
               <AngloSaxonPnlTable yearResults={current.yearResults} />
             </TabsContent>
             <TabsContent value="sig" className="mt-3">
               <PnlTable yearResults={current.yearResults} />
+            </TabsContent>
+            <TabsContent value="liasse" className="mt-3">
+              <LiasseFiscalePnl yearResults={current.yearResults} />
             </TabsContent>
           </Tabs>
         </div>

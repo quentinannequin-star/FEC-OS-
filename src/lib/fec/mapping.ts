@@ -3,7 +3,7 @@
 // Source: Expert-comptable TS/M&A — version 3.0-TS-Master
 // ============================================================
 
-import type { PnlMappingLine, BfrMappingLine, NetDebtMappingLine, KpiMappingLine, AngloSaxonMappingLine } from "./types";
+import type { PnlMappingLine, BfrMappingLine, NetDebtMappingLine, KpiMappingLine, AngloSaxonMappingLine, LiasseFiscaleMappingLine } from "./types";
 
 // --- Metadata ---
 export const MAPPING_VERSION = "3.0-TS-Master";
@@ -1679,4 +1679,59 @@ export const KPI_MAPPING: KpiMappingLine[] = [
     alert_below: 70,
     alert_above: null,
   },
+];
+
+// ============================================================
+// TABLE 6 — Liasse Fiscale (Compte de Résultat Cerfa)
+// Vue standard légale française — pour audit et réconciliation
+// ============================================================
+
+export const LIASSE_FISCALE_MAPPING: LiasseFiscaleMappingLine[] = [
+  // ─── PRODUITS D'EXPLOITATION ───
+  { id: "LF_010", label: "Ventes de marchandises", type: "account", pcg_prefix: ["707"], pcg_exclude: [], sign: "credit_minus_debit", formula: null },
+  { id: "LF_020", label: "Production vendue (biens)", type: "account", pcg_prefix: ["701", "702", "703"], pcg_exclude: [], sign: "credit_minus_debit", formula: null },
+  { id: "LF_030", label: "Production vendue (services)", type: "account", pcg_prefix: ["704", "705", "706", "708"], pcg_exclude: [], sign: "credit_minus_debit", formula: null },
+  { id: "LF_035", label: "Rabais, remises et ristournes accordés", type: "account", pcg_prefix: ["709"], pcg_exclude: [], sign: "debit_minus_credit", formula: null },
+  { id: "LF_040", label: "MONTANT NET DU CHIFFRE D'AFFAIRES", type: "subtotal", pcg_prefix: [], pcg_exclude: [], sign: "formula", formula: "LF_010 + LF_020 + LF_030 - LF_035" },
+  { id: "LF_050", label: "Production stockée", type: "account", pcg_prefix: ["71"], pcg_exclude: [], sign: "credit_minus_debit", formula: null },
+  { id: "LF_060", label: "Production immobilisée", type: "account", pcg_prefix: ["72"], pcg_exclude: [], sign: "credit_minus_debit", formula: null },
+  { id: "LF_070", label: "Subventions d'exploitation", type: "account", pcg_prefix: ["74"], pcg_exclude: [], sign: "credit_minus_debit", formula: null },
+  { id: "LF_080", label: "Reprises sur amortissements et provisions, transferts de charges", type: "account", pcg_prefix: ["781", "791"], pcg_exclude: [], sign: "credit_minus_debit", formula: null },
+  { id: "LF_090", label: "Autres produits", type: "account", pcg_prefix: ["75"], pcg_exclude: [], sign: "credit_minus_debit", formula: null },
+  { id: "LF_100", label: "TOTAL DES PRODUITS D'EXPLOITATION (I)", type: "subtotal", pcg_prefix: [], pcg_exclude: [], sign: "formula", formula: "LF_040 + LF_050 + LF_060 + LF_070 + LF_080 + LF_090" },
+
+  // ─── CHARGES D'EXPLOITATION ───
+  { id: "LF_110", label: "Achats de marchandises", type: "account", pcg_prefix: ["607"], pcg_exclude: [], sign: "debit_minus_credit", formula: null },
+  { id: "LF_120", label: "Variation des stocks de marchandises", type: "account", pcg_prefix: ["6037"], pcg_exclude: [], sign: "debit_minus_credit", formula: null },
+  { id: "LF_130", label: "Achats de matières premières et autres approvisionnements", type: "account", pcg_prefix: ["601", "602", "604", "606"], pcg_exclude: [], sign: "debit_minus_credit", formula: null },
+  { id: "LF_140", label: "Variation des stocks (matières et approvisionnements)", type: "account", pcg_prefix: ["6031", "6032"], pcg_exclude: [], sign: "debit_minus_credit", formula: null },
+  { id: "LF_145", label: "Rabais, remises et ristournes obtenus", type: "account", pcg_prefix: ["609", "619", "629"], pcg_exclude: [], sign: "credit_minus_debit", formula: null },
+  { id: "LF_150", label: "Autres achats et charges externes", type: "account", pcg_prefix: ["61", "62"], pcg_exclude: ["619", "629"], sign: "debit_minus_credit", formula: null },
+  { id: "LF_160", label: "Impôts, taxes et versements assimilés", type: "account", pcg_prefix: ["63"], pcg_exclude: [], sign: "debit_minus_credit", formula: null },
+  { id: "LF_170", label: "Salaires et traitements", type: "account", pcg_prefix: ["641", "642", "643", "644", "648"], pcg_exclude: [], sign: "debit_minus_credit", formula: null },
+  { id: "LF_180", label: "Charges sociales", type: "account", pcg_prefix: ["645", "646", "647"], pcg_exclude: [], sign: "debit_minus_credit", formula: null },
+  { id: "LF_190", label: "Dotations aux amortissements et aux provisions", type: "account", pcg_prefix: ["681"], pcg_exclude: [], sign: "debit_minus_credit", formula: null },
+  { id: "LF_195", label: "Autres charges", type: "account", pcg_prefix: ["65"], pcg_exclude: [], sign: "debit_minus_credit", formula: null },
+  { id: "LF_200", label: "TOTAL DES CHARGES D'EXPLOITATION (II)", type: "subtotal", pcg_prefix: [], pcg_exclude: [], sign: "formula", formula: "LF_110 + LF_120 + LF_130 + LF_140 - LF_145 + LF_150 + LF_160 + LF_170 + LF_180 + LF_190 + LF_195" },
+
+  // ─── RÉSULTAT D'EXPLOITATION ───
+  { id: "LF_210", label: "RÉSULTAT D'EXPLOITATION (I - II)", type: "subtotal", pcg_prefix: [], pcg_exclude: [], sign: "formula", formula: "LF_100 - LF_200" },
+
+  // ─── FINANCIER ───
+  { id: "LF_220", label: "Produits financiers", type: "account", pcg_prefix: ["76", "786", "796"], pcg_exclude: [], sign: "credit_minus_debit", formula: null },
+  { id: "LF_230", label: "Charges financières", type: "account", pcg_prefix: ["66", "686"], pcg_exclude: [], sign: "debit_minus_credit", formula: null },
+  { id: "LF_240", label: "RÉSULTAT FINANCIER", type: "subtotal", pcg_prefix: [], pcg_exclude: [], sign: "formula", formula: "LF_220 - LF_230" },
+
+  // ─── RÉSULTAT COURANT ───
+  { id: "LF_250", label: "RÉSULTAT COURANT AVANT IMPÔTS", type: "subtotal", pcg_prefix: [], pcg_exclude: [], sign: "formula", formula: "LF_210 + LF_240" },
+
+  // ─── EXCEPTIONNEL ───
+  { id: "LF_260", label: "Produits exceptionnels", type: "account", pcg_prefix: ["77", "787", "797"], pcg_exclude: [], sign: "credit_minus_debit", formula: null },
+  { id: "LF_270", label: "Charges exceptionnelles", type: "account", pcg_prefix: ["67", "687"], pcg_exclude: [], sign: "debit_minus_credit", formula: null },
+  { id: "LF_280", label: "RÉSULTAT EXCEPTIONNEL", type: "subtotal", pcg_prefix: [], pcg_exclude: [], sign: "formula", formula: "LF_260 - LF_270" },
+
+  // ─── IMPÔT & RÉSULTAT ───
+  { id: "LF_290", label: "Participation des salariés", type: "account", pcg_prefix: ["691"], pcg_exclude: [], sign: "debit_minus_credit", formula: null },
+  { id: "LF_300", label: "Impôts sur les bénéfices", type: "account", pcg_prefix: ["695", "698", "699"], pcg_exclude: [], sign: "debit_minus_credit", formula: null },
+  { id: "LF_310", label: "RÉSULTAT DE L'EXERCICE", type: "subtotal", pcg_prefix: [], pcg_exclude: [], sign: "formula", formula: "LF_250 + LF_280 - LF_290 - LF_300" },
 ];
