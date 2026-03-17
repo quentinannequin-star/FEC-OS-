@@ -1,22 +1,30 @@
 "use client";
 
-import { useState, useMemo, Fragment } from "react";
+import { useState, useMemo } from "react";
 import { ChevronRight } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DetailModal } from "./detail-modal";
-import { formatAmount } from "@/lib/fec/format";
+import { formatAmountK, formatVariationAmount, formatVariationPercent } from "@/lib/fec/format";
 import type { AnalysisResult, LiasseFiscaleLineResult } from "@/lib/fec/types";
 
 // --------------- Constants ---------------
 
-const RESULT_LINES = new Set([
-  "LF_040", "LF_100", "LF_200", "LF_210",
-  "LF_240", "LF_250", "LF_280", "LF_310",
+/** Key subtotals — bold + highlighted bg */
+const KEY_SUBTOTALS = new Set([
+  "LF_040", // CA net
+  "LF_100", // Total produits exploitation
+  "LF_200", // Total charges exploitation
+  "LF_210", // Résultat d'exploitation
+  "LF_250", // Résultat courant avant impôts
+  "LF_310", // Résultat de l'exercice
 ]);
 
-const FINAL_LINE = "LF_310";
-
+/** Section breaks — thicker border-top */
 const SECTION_BREAKS = new Set([
-  "LF_100", "LF_210", "LF_250", "LF_280",
+  "LF_100", // before charges
+  "LF_210", // résultat exploitation
+  "LF_250", // résultat courant
+  "LF_310", // résultat final
 ]);
 
 // --------------- Component ---------------
@@ -26,174 +34,146 @@ interface LiasseFiscalePnlProps {
 }
 
 export function LiasseFiscalePnl({ yearResults }: LiasseFiscalePnlProps) {
-  const [selectedYearIdx, setSelectedYearIdx] = useState(
-    yearResults.length - 1
-  );
   const [modalLine, setModalLine] = useState<LiasseFiscaleLineResult | null>(null);
 
-  const showMultiYear = yearResults.length > 1;
-  const lines = yearResults[0]?.liasseFiscalePnl ?? [];
+  if (yearResults.length === 0) return null;
 
+  const isMultiYear = yearResults.length > 1;
+  const latestResult = yearResults[yearResults.length - 1];
+  const prevResult = yearResults.length >= 2 ? yearResults[yearResults.length - 2] : null;
+
+  const visibleLines = latestResult.liasseFiscalePnl;
+
+  // Build lookup maps per year
   const yearLookups = useMemo(() => {
     return yearResults.map((yr) => {
       const map = new Map<string, LiasseFiscaleLineResult>();
-      for (const line of yr.liasseFiscalePnl) {
-        map.set(line.id, line);
-      }
+      for (const line of yr.liasseFiscalePnl) map.set(line.id, line);
       return map;
     });
   }, [yearResults]);
 
-  if (lines.length === 0) return null;
-
-  const displayIndices = showMultiYear
-    ? yearResults.map((_, i) => i)
-    : [selectedYearIdx];
-
   return (
     <>
-      <div className="border border-slate-700 rounded-lg overflow-hidden">
-        {/* Header */}
-        <div className="bg-slate-800 px-4 py-3 border-b border-slate-700">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-semibold text-white tracking-wide">
-                COMPTE DE RÉSULTAT — LIASSE FISCALE
-              </h3>
-              <p className="text-[10px] text-slate-400 mt-0.5">
-                Vue Cerfa standard • Comptes de classe 6 et 7
-              </p>
-            </div>
-            {!showMultiYear && yearResults.length > 1 && (
-              <div className="flex gap-1">
-                {yearResults.map((yr, idx) => (
-                  <button
-                    key={yr.fiscalYear}
-                    onClick={() => setSelectedYearIdx(idx)}
-                    className={`h-7 px-2.5 text-xs rounded-md font-medium transition-colors ${
-                      selectedYearIdx === idx
-                        ? "bg-slate-600 text-white"
-                        : "text-slate-400 hover:text-white hover:bg-slate-700"
-                    }`}
-                  >
-                    {yr.fiscalYear}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Table */}
-        <div className="overflow-auto max-h-[70vh]">
-          <table className="w-full text-sm border-collapse">
-            {showMultiYear && (
-              <thead className="sticky top-0 bg-slate-900 z-10">
-                <tr className="border-b border-slate-700">
-                  <th className="text-left text-[10px] text-slate-400 uppercase tracking-wider font-medium px-4 py-2">
+      <Card className="h-full">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base font-semibold text-white">
+            Compte de Résultat — Liasse Fiscale
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="overflow-auto max-h-[70vh]">
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 bg-[#12121a] z-10">
+                <tr className="border-b border-white/[0.08]">
+                  <th className="py-2 px-4 text-left text-xs font-medium text-[#8b8b9e] min-w-[200px]">
                     Libellé
                   </th>
-                  {displayIndices.map((idx) => (
-                    <th
-                      key={idx}
-                      className="text-right text-[10px] text-slate-400 uppercase tracking-wider font-medium px-4 py-2 w-[130px]"
-                    >
-                      {yearResults[idx].fiscalYear}
+                  {yearResults.map((yr) => (
+                    <th key={yr.fiscalYear} className="py-2 px-3 text-right text-xs font-medium text-[#8b8b9e] whitespace-nowrap">
+                      {yr.fiscalYear} (k€)
                     </th>
                   ))}
+                  {isMultiYear && (
+                    <>
+                      <th className="py-2 px-3 text-right text-xs font-medium text-[#52526b] whitespace-nowrap">
+                        Var €
+                      </th>
+                      <th className="py-2 px-3 text-right text-xs font-medium text-[#52526b] whitespace-nowrap">
+                        Var %
+                      </th>
+                    </>
+                  )}
                 </tr>
               </thead>
-            )}
+              <tbody>
+                {visibleLines.map((line) => {
+                  const isKey = KEY_SUBTOTALS.has(line.id);
+                  const isSubtotal = line.type === "subtotal";
+                  const isClickable = line.type === "account" && line.details.length > 0;
+                  const hasSectionBreak = SECTION_BREAKS.has(line.id);
 
-            <tbody>
-              {lines.map((line) => {
-                const isFinal = line.id === FINAL_LINE;
-                const isResult = RESULT_LINES.has(line.id);
-                const isSubtotal = line.type === "subtotal";
-                const hasBreakAfter = SECTION_BREAKS.has(line.id);
-                const isClickable = line.type === "account" && line.details.length > 0;
+                  // Variation between last two years
+                  const latestAmount = yearLookups[yearLookups.length - 1].get(line.id)?.amount ?? 0;
+                  const prevAmount = prevResult ? (yearLookups[yearLookups.length - 2].get(line.id)?.amount ?? 0) : 0;
+                  const varAbsolute = latestAmount - prevAmount;
+                  const varPercent = prevAmount !== 0 ? ((latestAmount - prevAmount) / Math.abs(prevAmount)) * 100 : null;
 
-                const amounts = displayIndices.map((idx) => {
-                  const l = yearLookups[idx].get(line.id);
-                  return l?.amount ?? 0;
-                });
+                  // For the modal, use the latest year's line data
+                  const latestLineData = yearLookups[yearLookups.length - 1].get(line.id);
 
-                // For the modal, use the latest displayed year's line data
-                const latestLineData = yearLookups[displayIndices[displayIndices.length - 1]].get(line.id);
-
-                // Styling
-                let rowBg = "";
-                let labelStyle = "text-slate-300 pl-6";
-                let amountStyle = "text-slate-300 font-mono";
-                let borderStyle = "border-b border-slate-800/60";
-
-                if (isFinal) {
-                  const lastAmt = amounts[amounts.length - 1];
-                  const isBenefice = lastAmt >= 0;
-                  rowBg = isBenefice ? "bg-emerald-950/40" : "bg-red-950/40";
-                  borderStyle = isBenefice
-                    ? "border-b-2 border-emerald-700/50"
-                    : "border-b-2 border-red-700/50";
-                  labelStyle = "text-white font-bold pl-4";
-                  amountStyle = `font-mono font-bold ${isBenefice ? "text-emerald-400" : "text-red-400"}`;
-                } else if (isResult) {
-                  rowBg = "bg-slate-800/80";
-                  borderStyle = "border-b border-slate-700";
-                  labelStyle = "text-white text-xs font-semibold pl-4 uppercase tracking-wide";
-                  amountStyle = "text-white font-mono font-semibold";
-                } else if (isSubtotal) {
-                  rowBg = "bg-slate-800/40";
-                  borderStyle = "border-b border-slate-700/60";
-                  labelStyle = "text-slate-200 text-xs font-medium pl-4 uppercase tracking-wide";
-                  amountStyle = "text-slate-200 font-mono font-medium";
-                }
-
-                if (hasBreakAfter) {
-                  borderStyle = "border-b-2 border-slate-600/70";
-                }
-
-                return (
-                  <Fragment key={line.id}>
+                  return (
                     <tr
-                      className={`${rowBg} ${borderStyle} ${
-                        isClickable
-                          ? "cursor-pointer hover:bg-white/[0.04] transition-colors"
-                          : ""
-                      }`}
-                      onClick={
-                        isClickable && latestLineData
-                          ? () => setModalLine(latestLineData)
-                          : undefined
-                      }
+                      key={line.id}
+                      onClick={isClickable && latestLineData ? () => setModalLine(latestLineData) : undefined}
+                      className={`
+                        border-b transition-colors
+                        ${isKey ? "bg-white/[0.06] border-white/[0.08]" : "border-white/[0.04]"}
+                        ${isSubtotal && !isKey ? "bg-white/[0.03]" : ""}
+                        ${isClickable ? "cursor-pointer hover:bg-white/[0.04]" : ""}
+                        ${hasSectionBreak ? "border-t-2 border-t-white/[0.08]" : ""}
+                      `}
                     >
-                      {/* Label */}
-                      <td className={`px-4 py-2 ${labelStyle}`}>
+                      <td
+                        className={`py-1.5 px-4 ${
+                          isKey
+                            ? "font-bold text-white"
+                            : isSubtotal
+                            ? "font-semibold text-[#c0c0d0]"
+                            : "text-[#8b8b9e]"
+                        } ${!isSubtotal && !isKey ? "pl-8" : ""}`}
+                      >
                         <span className="inline-flex items-center gap-1.5">
                           {isClickable && (
-                            <ChevronRight className="h-3 w-3 text-slate-500 shrink-0" />
+                            <ChevronRight className="h-3 w-3 text-[#52526b] shrink-0" />
                           )}
                           {line.label}
                         </span>
                       </td>
-                      {/* Amounts */}
-                      {amounts.map((amt, i) => (
-                        <td
-                          key={i}
-                          className={`px-4 py-2 text-right whitespace-nowrap ${amountStyle}`}
-                        >
-                          {formatLiasseAmount(amt)}
-                        </td>
-                      ))}
+                      {yearResults.map((yr, idx) => {
+                        const amount = yearLookups[idx].get(line.id)?.amount ?? 0;
+                        const isNegative = amount < 0;
+                        return (
+                          <td
+                            key={yr.fiscalYear}
+                            className={`py-1.5 px-3 text-right font-mono text-xs whitespace-nowrap ${
+                              isKey
+                                ? "font-bold text-white"
+                                : isSubtotal
+                                ? "font-semibold text-[#c0c0d0]"
+                                : "text-[#8b8b9e]"
+                            } ${isNegative ? "text-red-400" : ""}`}
+                          >
+                            {amount === 0 && line.type === "account"
+                              ? "—"
+                              : formatAmountK(amount)}
+                          </td>
+                        );
+                      })}
+                      {isMultiYear && (
+                        <>
+                          <td className={`py-1.5 px-3 text-right font-mono text-xs whitespace-nowrap ${varAbsolute < 0 ? "text-red-400" : varAbsolute > 0 ? "text-emerald-400" : "text-[#52526b]"}`}>
+                            {line.type === "account" && latestAmount === 0 && prevAmount === 0
+                              ? "—"
+                              : formatVariationAmount(varAbsolute)}
+                          </td>
+                          <td className={`py-1.5 px-3 text-right font-mono text-xs whitespace-nowrap ${(varPercent ?? 0) < 0 ? "text-red-400" : (varPercent ?? 0) > 0 ? "text-emerald-400" : "text-[#52526b]"}`}>
+                            {line.type === "account" && latestAmount === 0 && prevAmount === 0
+                              ? "—"
+                              : formatVariationPercent(varPercent)}
+                          </td>
+                        </>
+                      )}
                     </tr>
-                  </Fragment>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
 
-      {/* Detail modal — same as SIG */}
+      {/* Detail modal */}
       {modalLine && (
         <DetailModal
           open={!!modalLine}
@@ -204,10 +184,4 @@ export function LiasseFiscalePnl({ yearResults }: LiasseFiscalePnlProps) {
       )}
     </>
   );
-}
-
-/** Format amount for liasse: "1 234 567 €" or "—" for zero */
-function formatLiasseAmount(value: number): string {
-  if (Math.abs(value) < 0.5) return "—";
-  return formatAmount(value);
 }
