@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { LedgerModal } from "./ledger-modal";
+import { DetailModal } from "./detail-modal";
 import { formatAmountK, formatVariationAmount, formatVariationPercent } from "@/lib/fec/format";
 import type { AngloSaxonLineResult, AnalysisResult } from "@/lib/fec/types";
 
@@ -69,7 +69,7 @@ export function AngloSaxonPnlTable({ yearResults }: AngloSaxonPnlTableProps) {
                 {latestResult.angloSaxonPnl.map((line) => {
                   const isKey = line.is_key_subtotal;
                   const isSubtotal = line.type === "subtotal";
-                  const isClickable = line.entries.length > 0 || line.details.length > 0;
+                  const isClickable = line.details.length > 0;
                   const hasSectionBreak = SECTION_BREAKS.has(line.id);
 
                   // Variation between last two years
@@ -154,16 +154,16 @@ export function AngloSaxonPnlTable({ yearResults }: AngloSaxonPnlTableProps) {
         </CardContent>
       </Card>
 
-      {/* Ledger drill-down modal */}
+      {/* Detail modal (account summary) */}
       {modalLine && (
-        <LedgerModal
+        <DetailModal
           open={!!modalLine}
           onClose={() => setModalLine(null)}
           title={`${modalLine.label} — ${modalLine.label_fr}`}
-          entries={modalLine.entries}
-          yearEntries={yearResults.map((yr) => {
+          details={modalLine.details}
+          yearDetails={yearResults.map((yr) => {
             const line = yr.angloSaxonPnl.find((l) => l.id === modalLine.id);
-            return { label: yr.fiscalYear, entries: line?.entries ?? [] };
+            return { label: yr.fiscalYear, details: line?.details ?? [] };
           })}
         />
       )}
